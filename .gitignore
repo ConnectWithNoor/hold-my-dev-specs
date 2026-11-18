@@ -1,0 +1,3 @@
+# Private design records: they hold local paths and stay out of git history.
+# Converted into public ADRs at S12, then deleted.
+docs/phase-b-*.md

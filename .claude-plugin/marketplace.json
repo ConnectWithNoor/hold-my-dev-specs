@@ -1,0 +1,12 @@
+{
+  "name": "hold-my-dev-specs",
+  "description": "Catalog for the hold-my-dev-specs plugin.",
+  "owner": { "name": "Noor Muhammad" },
+  "plugins": [
+    {
+      "name": "hold-my-dev-specs",
+      "source": "./",
+      "description": "Spec-driven development for software projects with verified helper agents."
+    }
+  ]
+}
