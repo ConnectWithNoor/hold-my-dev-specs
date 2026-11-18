@@ -3,7 +3,9 @@
 `.claude/hold-my-dev-specs.json` holds every choice locked for this project. The `setup` skill writes it
 from the user's answers: **nothing is filled in silently**; suggested values are only offered.
 Template (all values `null` until asked): [templates/hold-my-dev-specs.json](../templates/hold-my-dev-specs.json).
-Agents must ask before editing anything under `.claude/`.
+This file switches the protections on and off, so the gate hook guards it in **every** profile: helpers
+and other agents may never change it, and every change by the master shows the user a permission prompt.
+While it is unfinished or broken, only the master may repair it (or anything else).
 
 | Field | Meaning | Suggested at setup |
 |---|---|---|
@@ -13,7 +15,8 @@ Agents must ask before editing anything under `.claude/`.
 | `models.strongest` | Model for verifier, test author, spec-miner | asked, no suggestion |
 | `models.mid` | Model for implementer, explorer, shipper | asked, no suggestion |
 | `paths.open` | Paths editable before both approvals (everything else is gated) | `["specs/**", "docs/**"]` |
-| `paths.protected` | Paths implementers may never touch: tests, quality configs, specs, CI, guardrails. Each helper's own report file is the only exception (write rights: [artifacts.md](artifacts.md)) | proposed from the repo |
+| `paths.protected` | Paths implementers may never touch: quality configs (lint / format / typecheck + their ignore files), CI, guardrails. `specs/**` and the test paths below are always protected too, without being listed (write rights: [artifacts.md](artifacts.md)) | proposed from the repo |
+| `paths.tests` | Where tests live. Only the test author writes here | detected from the repo, confirmed |
 | `commands.test` / `lint` / `format` / `typecheck` | Commands the verifier (and strict Stop checks) run; `null` = none | detected from the repo, confirmed |
 | `verification.signals` | What the verifier can use: `browser` · `screenshot` · `logs` · `code-only` | asked |
 | `verification.tools` | Plugins / MCP servers / CLIs granted for validation | asked |
@@ -44,7 +47,7 @@ Agents must ask before editing anything under `.claude/`.
 | Context manifest (pastes listed files into helper briefs) | ❌ | ✅ | ✅ |
 | Workflow-state note (2–3 lines per turn) | ❌ | ✅ | ✅ |
 | Stop checks (format / lint / typecheck changed files after each reply) | ❌ | ❌ | ✅ |
-| Quality configs locked for the master too | ❌ | ❌ | ✅ |
+| Master locked out of protected and test paths too (`specs/**` excepted) | ❌ | ❌ | ✅ |
 
 The approval hook can't be disabled while the plan gate is on: the gate would never open.
 If verifier and builder map to the same model, setup warns (the critic should differ from the builder).

@@ -26,6 +26,7 @@ const FIELDS = [
   ['models.mid', isString, false],
   ['paths.open', isStringArray, false],
   ['paths.protected', isStringArray, false],
+  ['paths.tests', isStringArray, false],
   ['commands.test', isString, true],
   ['commands.lint', isString, true],
   ['commands.format', isString, true],

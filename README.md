@@ -12,6 +12,12 @@ only after your approval does it build the work in small, checked steps.
 - **Node.js 22 or newer.** Node.js runs the plugin's small check scripts (hooks).
 - Tested on **Linux only** so far.
 
+## What the protections can and can't do
+The plugin's checks stop careless mistakes, such as a helper editing tests or code changing before you
+approved the plan. They are **best-effort, not airtight**: a script run inside a shell command can still
+change files without the checks seeing it. A separate review step (the verifier's comparison of all
+changes) catches what slips through.
+
 ## Developer notes
 - Run the tests: `npm test` (uses Node's built-in test runner; nothing to install).
 

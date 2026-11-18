@@ -1,0 +1,20 @@
+{
+  "description": "hold-my-dev-specs: plan gate, approval recorder and verifier integrity. Inactive in projects without .claude/hold-my-dev-specs.json.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit|NotebookEdit|Bash",
+        "hooks": [
+          { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/pre-tool.js\"", "onFailure": "block" }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/prompt-submit.js\"" }
+        ]
+      }
+    ]
+  }
+}

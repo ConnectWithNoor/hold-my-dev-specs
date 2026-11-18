@@ -3,7 +3,7 @@
   "profile": null,
   "disabledHooks": null,
   "models": { "strongest": null, "mid": null },
-  "paths": { "open": null, "protected": null },
+  "paths": { "open": null, "protected": null, "tests": null },
   "commands": { "test": null, "lint": null, "format": null, "typecheck": null },
   "verification": {
     "signals": null,

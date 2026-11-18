@@ -1,0 +1,206 @@
+'use strict';
+// PreToolUse decisions for file writes: settings protection, verifier integrity, ledger rules,
+// approved-document locks, plan gate.
+// Rules: guides/artifacts.md ("Who may write what") and guides/ledger.md ("Rules the hooks enforce").
+// Returns a deny or ask output, or undefined to let Claude Code's normal permission flow decide.
+const fs = require('fs');
+const path = require('path');
+const { projectRoot, loadConfig, REPAIR_PATHS, SPECS_DIR, CONFIG_REL } = require('./project');
+const { loadActiveLedger, parseHeader, approvalsChanged, gateOpen, isApproved } = require('./ledger');
+const { isHookEnabled } = require('./profile');
+const { whoIsCalling } = require('./agents');
+const { matchesAny, realProjectPath } = require('./paths');
+const { bashWriteTargets } = require('./bash-writes');
+const { deny, ask } = require('./output');
+
+const FILE_TOOLS = { Write: 'file_path', Edit: 'file_path', MultiEdit: 'file_path', NotebookEdit: 'notebook_path' };
+const LEDGER = /^specs\/([^/]+)\/ledger\.md$/;
+const LOCKABLE = /^specs\/([^/]+)\/(spec|rubric|plan)\.md$/;
+
+// Own report names per helper, inside the active feature's reports/ folder.
+const REPORTS = {
+  implementer: /^T\d{2,}-impl\.md$/,
+  'test-author': /^T\d{2,}-tests\.md$/,
+  verifier: /^T\d{2,}-verify-\d+\.md$/,
+  explorer: /^explore-[a-z0-9][a-z0-9-]*\.md$/,
+  shipper: /^ship\.md$/,
+};
+
+// Absolute paths the tool call would write. `via` tells whether the content is known (tool) or not (bash).
+function writeTargets(input) {
+  const ti = input.tool_input || {};
+  const cwd = input.cwd || process.cwd();
+  const field = FILE_TOOLS[input.tool_name];
+  if (field) {
+    if (typeof ti[field] !== 'string' || !ti[field]) throw new Error(`${input.tool_name} call has no ${field}`);
+    return [{ abs: path.resolve(cwd, ti[field]), via: 'tool' }];
+  }
+  if (input.tool_name === 'Bash') {
+    return bashWriteTargets(ti.command).map((t) => ({ abs: path.resolve(cwd, t), via: 'bash' }));
+  }
+  return [];
+}
+
+// The file's content after an Edit / Write / MultiEdit, or null when it can't be worked out
+// (then Claude Code's own tool fails too, so nothing is written).
+function contentAfter(input, oldText) {
+  const ti = input.tool_input;
+  if (input.tool_name === 'Write') return typeof ti.content === 'string' ? ti.content : null;
+  const edits = input.tool_name === 'MultiEdit' ? ti.edits : [ti];
+  if (!Array.isArray(edits)) return null;
+  let text = oldText;
+  for (const e of edits) {
+    if (!e || typeof e.old_string !== 'string' || typeof e.new_string !== 'string') return null;
+    if (text === null) {
+      if (e.old_string !== '') return null;
+      text = e.new_string;
+    } else if (!text.includes(e.old_string) || e.old_string === '') {
+      return null;
+    } else {
+      text = e.replace_all ? text.split(e.old_string).join(e.new_string) : text.replace(e.old_string, () => e.new_string);
+    }
+  }
+  return text;
+}
+
+// Header of a feature's ledger, or null when it is missing or broken.
+function featureHeader(root, feature) {
+  try {
+    const parsed = parseHeader(fs.readFileSync(path.join(root, SPECS_DIR, feature, 'ledger.md'), 'utf8'));
+    return parsed.ok ? parsed.header : null;
+  } catch {
+    return null;
+  }
+}
+
+// Ledger edits: approval values only via the approval hook, `done` is final,
+// a new or repaired ledger starts unapproved, never via the shell.
+function ledgerRule(rel, via, input, root) {
+  if (!LEDGER.test(rel)) return null;
+  if (via === 'bash' || input.tool_name === 'NotebookEdit') {
+    return `${rel} can only be changed with Edit or Write, so the approval values can be checked.`;
+  }
+  const file = path.join(root, rel);
+  const oldText = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : null;
+  const newText = contentAfter(input, oldText);
+  if (newText === null) return null;
+  const after = parseHeader(newText);
+  if (!after.ok) return `This edit would break the ledger header of ${rel}: ${after.reason}. Format: guides/ledger.md.`;
+  const before = oldText === null ? { ok: false } : parseHeader(oldText);
+  if (before.ok) {
+    if (approvalsChanged(before.header, after.header)) {
+      return 'Approval values are set only by the user typing "approve spec", "approve plan", "approve both" or "revoke". Leave spec_approved and plan_approved unchanged.';
+    }
+    if (before.header.stage === 'done' && after.header.stage !== 'done') {
+      return `${rel}: a finished feature stays done. Start a new feature for new work.`;
+    }
+  } else if (after.header.spec_approved !== 'no' || after.header.plan_approved !== 'no') {
+    return `A new or repaired ledger must start with spec_approved: no and plan_approved: no (${rel}).`;
+  }
+  return null;
+}
+
+// Approved documents are locked: spec + rubric after the spec approval, plan after the plan approval.
+function lockRule(rel, root) {
+  const m = rel.match(LOCKABLE);
+  if (!m) return null;
+  const header = featureHeader(root, m[1]);
+  if (!header) return null;
+  const approval = m[2] === 'plan' ? header.plan_approved : header.spec_approved;
+  if (!isApproved(approval)) return null;
+  return `${rel} was approved. Ask the user to type "revoke", make the change, then ask for approval again.`;
+}
+
+function integrityRule(rel, caller, config, active, env) {
+  const isTest = matchesAny(rel, config.paths.tests);
+  const inSpecs = rel === SPECS_DIR || rel.startsWith(`${SPECS_DIR}/`);
+  const isProtected = isTest || inSpecs || matchesAny(rel, config.paths.protected);
+  const reportsDir = active.status === 'ok' ? `${SPECS_DIR}/${active.feature}/reports/` : null;
+  const ownReport = (name) =>
+    REPORTS[name] && reportsDir && rel.startsWith(reportsDir) && REPORTS[name].test(rel.slice(reportsDir.length));
+
+  if (caller.kind === 'master') {
+    if (isProtected && !inSpecs && isHookEnabled('master-config-lock', config, env)) {
+      return `Strict profile: the master may not change protected or test paths (${rel}). Delegate tests to the test author.`;
+    }
+    return null;
+  }
+  if (caller.kind === 'other') {
+    return isProtected ? `${caller.name} is not part of this plugin's team and may not change protected paths (${rel}).` : null;
+  }
+  const who = caller.name;
+  if (ownReport(who)) return null;
+  switch (who) {
+    case 'implementer':
+      return isProtected ? `The implementer may not change protected paths (${rel}): tests, quality configs, specs, CI and guardrails stay as they are. Report a disagreement instead.` : null;
+    case 'test-author':
+      return isTest && !inSpecs ? null : `The test author may write only test paths and its own report (${rel}).`;
+    case 'spec-miner':
+      return rel.startsWith(`${SPECS_DIR}/baseline/`) ? null : `The spec-miner may write only specs/baseline/ (${rel}).`;
+    default: // verifier, explorer, shipper
+      return `The ${who} may write only its own report in the active feature's reports/ folder (${rel}).`;
+  }
+}
+
+function gateRule(rel, config, active) {
+  if (matchesAny(rel, config.paths.open) || matchesAny(rel, REPAIR_PATHS)) return null;
+  if (active.status === 'none') {
+    return `Plan gate: no active feature, so ${rel} can't be changed yet. Start a feature and get the spec and plan approved first.`;
+  }
+  if (active.status === 'broken') return `Plan gate: the ledger has a problem (${active.reason}). Repair it first.`;
+  if (active.header.stage === 'done') {
+    return `Plan gate: the active feature ${active.feature} is done, so its old approvals don't open the gate. Start a new feature.`;
+  }
+  if (!gateOpen(active.header)) {
+    const s = active.header.spec_approved === 'no' ? 'not approved' : 'approved';
+    const p = active.header.plan_approved === 'no' ? 'not approved' : 'approved';
+    return `Plan gate is closed for ${rel} (spec ${s}, plan ${p}). Ask the user to review and type "approve spec" / "approve plan".`;
+  }
+  return null;
+}
+
+// → { deny: reason } · { ask: reason } · null
+function checkTarget(rel, via, input, root, cfg, caller, active, env) {
+  // The settings file switches the protections on and off: helpers never touch it, the master asks the user.
+  if (rel === CONFIG_REL) {
+    return caller.kind === 'master'
+      ? { ask: 'hold-my-dev-specs: this changes the project settings that control the plugin\'s protections. Allow only if you asked for this change.' }
+      : { deny: `Only the master may change ${CONFIG_REL}, and only with the user's permission.` };
+  }
+  if (cfg.status !== 'ok') {
+    if (caller.kind !== 'master') return { deny: `Project settings are ${cfg.status}; only the master may repair them.` };
+    if (!matchesAny(rel, REPAIR_PATHS)) {
+      return { deny: `Project settings are ${cfg.status} (${cfg.problems.join('; ')}), so ${rel} can't be changed. Finish setup or repair ${CONFIG_REL} first.` };
+    }
+    const r = ledgerRule(rel, via, input, root) || lockRule(rel, root);
+    return r ? { deny: r } : null;
+  }
+  const config = cfg.config;
+  const on = (hook) => isHookEnabled(hook, config, env);
+  const r = (on('verifier-integrity') && integrityRule(rel, caller, config, active, env))
+    || (on('plan-gate') && (ledgerRule(rel, via, input, root) || lockRule(rel, root) || gateRule(rel, config, active)))
+    || null;
+  return r ? { deny: r } : null;
+}
+
+function decideToolCall(input, env) {
+  const root = projectRoot(input, env);
+  const cfg = loadConfig(root);
+  if (cfg.status === 'absent') return undefined;
+  const targets = writeTargets(input);
+  if (!targets.length) return undefined;
+  const caller = whoIsCalling(input);
+  const active = loadActiveLedger(root);
+
+  let askReason = null;
+  for (const { abs, via } of targets) {
+    const rel = realProjectPath(root, abs);
+    if (rel === null) continue; // outside the project: personal safety hooks decide
+    const result = checkTarget(rel, via, input, root, cfg, caller, active, env);
+    if (result && result.deny) return deny(`hold-my-dev-specs: ${result.deny}`);
+    if (result && result.ask) askReason = result.ask;
+  }
+  return askReason ? ask(askReason) : undefined; // any deny wins over ask
+}
+
+module.exports = { writeTargets, contentAfter, decideToolCall };

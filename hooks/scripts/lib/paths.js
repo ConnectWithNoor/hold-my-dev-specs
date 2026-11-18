@@ -2,6 +2,7 @@
 // Path helpers: turn a tool's file path into a project-relative path and match it against globs.
 // Glob syntax: `**` = any number of folders, `*` = anything inside one folder name, `?` = one character.
 // `dir/**` also matches `dir` itself.
+const fs = require('fs');
 const path = require('path');
 
 function globToRegExp(glob) {
@@ -49,4 +50,24 @@ function matchesAny(relPath, globs) {
   return globs.some((g) => globToRegExp(g).test(relPath));
 }
 
-module.exports = { globToRegExp, toProjectPath, matchesAny };
+// The real location of a path, with symlinks resolved: the file's own if it exists,
+// otherwise its nearest existing parent folder's (for files about to be created).
+function realPath(absPath) {
+  const missing = [];
+  let p = path.resolve(absPath);
+  while (!fs.existsSync(p)) {
+    const parent = path.dirname(p);
+    if (parent === p) break;
+    missing.unshift(path.basename(p));
+    p = parent;
+  }
+  const real = fs.existsSync(p) ? fs.realpathSync(p) : p;
+  return path.join(real, ...missing);
+}
+
+// Project-relative real path (symlinks resolved on both sides), or null when outside the project.
+function realProjectPath(root, absPath) {
+  return toProjectPath(realPath(root), realPath(absPath));
+}
+
+module.exports = { globToRegExp, toProjectPath, matchesAny, realPath, realProjectPath };

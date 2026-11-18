@@ -41,7 +41,7 @@ test('nullable fields may stay null', () => {
 });
 
 test('empty lists are allowed', () => {
-  assert.equal(checkConfig(validConfig({ disabledHooks: [], paths: { open: [], protected: [] } })).status, 'ok');
+  assert.equal(checkConfig(validConfig({ disabledHooks: [], paths: { open: [], protected: [], tests: [] } })).status, 'ok');
 });
 
 for (const [name, override] of [
@@ -49,7 +49,7 @@ for (const [name, override] of [
   ['unknown disabled hook', { disabledHooks: ['approval-recorder'] }],
   ['threshold out of range', { verification: { ...validConfig().verification, passThreshold: 11 } }],
   ['maxRounds not an integer', { fixLoop: { maxRounds: 2.5 } }],
-  ['open paths not a list', { paths: { open: 'specs/**', protected: [] } }],
+  ['open paths not a list', { paths: { open: 'specs/**', protected: [], tests: [] } }],
   ['unknown signal', { verification: { ...validConfig().verification, signals: ['telepathy'] } }],
 ]) {
   test(`${name} → broken`, () => assert.equal(checkConfig(validConfig(override)).status, 'broken'));

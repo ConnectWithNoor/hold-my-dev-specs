@@ -36,18 +36,26 @@ One feature is active at a time. `ACTIVE` is empty (or missing) when none is.
 Hooks enforce this table; the helper is known from the hook input (`hold-my-dev-specs:<helper>`).
 "Gated" = only after both approvals ([ledger.md](ledger.md)).
 
+"Protected" = the settings' `paths.protected` + `paths.tests` + `specs/**`.
+
 | Who | May write | Report file in `specs/<feature>/reports/` |
 |---|---|---|
 | Implementer / fixer | source code (gated); never protected paths | `<task>-impl.md` |
-| Test author | test files (gated) | `<task>-tests.md` |
+| Test author | `paths.tests` only (gated) | `<task>-tests.md` |
 | Verifier | its report only (runs tests, changes nothing) | `<task>-verify-<round>.md` |
 | Explorer | its report only | `explore-<topic>.md` |
-| Spec-miner | `specs/baseline/` only | `spec-miner.md` |
+| Spec-miner | `specs/baseline/**` only, its report included (`specs/baseline/report.md`) | — |
 | Shipper | its report only; deploy and monitor commands come from the project settings and stay Ask first | `ship.md` |
-| Master | specs, ledger (approval values excepted), manifests, `ACTIVE`; source code through the same gate; in `strict` never quality configs | `final-check.md` |
+| Master | specs (approved ones locked), ledger (approval values and `done` excepted), manifests, `ACTIVE`; the settings file only with a permission prompt; everything else through the same gate; in `strict` never protected or test paths (`specs/**` excepted) | `final-check.md` |
 | Any other agent (not from this plugin, e.g. Claude Code's general-purpose helper) | source code through the gate only; never protected paths | none: no report files |
 
-A helper may write only its **own** report file name; any other file inside `reports/` is denied.
+No helper or other agent may ever change `.claude/hold-my-dev-specs.json`, and while the settings are
+unfinished or broken, helpers may write nothing at all.
+
+A helper may write only its **own** report file name (the pattern above, inside the **active** feature's
+`reports/`); any other file inside `reports/` is denied. Shell commands that write files are checked on a
+best-effort basis only; the verifier's diff check catches what slips through. The ledger can't be written
+through the shell at all (use Edit / Write, so the approval values can be checked).
 
 ## Two lanes
 - **Full lane:** spec.md + rubric.md → `approve spec` → plan.md → `approve plan` → tasks.md → build.

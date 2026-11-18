@@ -10,7 +10,7 @@ function validConfig(overrides = {}) {
     profile: 'standard',
     disabledHooks: [],
     models: { strongest: 'opus', mid: 'sonnet' },
-    paths: { open: ['specs/**', 'docs/**'], protected: ['tests/**', '.eslintrc.json'] },
+    paths: { open: ['specs/**', 'docs/**'], protected: ['.eslintrc.json', '.github/**'], tests: ['tests/**', '**/*.test.js'] },
     commands: { test: 'npm test', lint: null, format: null, typecheck: null },
     verification: { signals: ['code-only'], tools: null, passThreshold: 7, lenses: [], highRiskAreas: null },
     fixLoop: { maxRounds: 3 },
