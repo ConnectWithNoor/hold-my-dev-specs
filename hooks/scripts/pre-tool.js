@@ -1,10 +1,8 @@
 #!/usr/bin/env node
 'use strict';
-// PreToolUse dispatcher for writes and Agent calls. Blocks on any error.
-// Agent → model by tier + context manifest; file writes → gate and integrity.
-// (Read has its own entry, pre-read.js, which never blocks.)
+// PreToolUse dispatcher for writes, shell commands and Agent calls. Blocks on any error.
+// (Read / Grep have their own entry, pre-read.js, which never blocks: secret reads + plugin docs.)
 const { main } = require('./lib/run');
-const { decideToolCall } = require('./lib/gate');
-const { decideAgentCall } = require('./lib/agent-call');
+const { decide } = require('./lib/tool-call');
 
-main((input, env) => (input.tool_name === 'Agent' ? decideAgentCall(input, env) : decideToolCall(input, env)), { onError: 'block' });
+main((input, env) => decide(input, env), { onError: 'block' });

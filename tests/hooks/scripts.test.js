@@ -28,12 +28,13 @@ test('hooks.json is valid and points at existing scripts', () => {
       }
     }
   }
-  // Only the write/Agent hook blocks on failure; Read, message and Stop hooks must not.
+  // Only the tool-call hook blocks on failure; the Read / Grep hook (secret reads + plugin docs),
+  // message and Stop hooks must not — a broken script must never block every read (user decision).
   const [writes, reads] = cfg.hooks.PreToolUse;
   assert.equal(writes.hooks[0].onFailure, 'block');
-  assert.match(writes.matcher, /\bAgent\b/);
-  assert.doesNotMatch(writes.matcher, /\bRead\b/);
-  assert.equal(reads.matcher, 'Read');
+  for (const tool of ['Write', 'Edit', 'Bash', 'Agent']) assert.match(writes.matcher, new RegExp(`\\b${tool}\\b`), tool);
+  for (const tool of ['Read', 'Grep']) assert.doesNotMatch(writes.matcher, new RegExp(`\\b${tool}\\b`), tool);
+  assert.equal(reads.matcher, 'Read|Grep');
   assert.equal(reads.hooks[0].onFailure, undefined);
   assert.match(reads.hooks[0].command, /pre-read\.js/);
   assert.equal(cfg.hooks.UserPromptSubmit[0].hooks[0].onFailure, undefined);

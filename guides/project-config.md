@@ -55,6 +55,26 @@ A different model the master names on purpose is kept, and the brief notes it.
 
 The approval hook can't be disabled while the plan gate is on: the gate would never open.
 
+## Safety copy (standard / strict)
+For users without their own safety hooks, the plugin guards every tool call in projects that have this
+settings file:
+- **Never do → blocked:** reading, printing or committing secrets (`.env*` except `.env.example` /
+  `.sample` / `.template` / `.dist`, keys, `~/.ssh`, `~/.aws`, credential files; secret values in what a
+  commit would add); recursive deletes of `/`, `~` or anything outside the project; disk tools (`mkfs`,
+  `dd` to a disk, …); force-pushing or deleting main/master; running a downloaded script straight in a
+  shell. Also when wrapped in `sh -c`, `sudo`, subshells.
+- **Ask first → permission prompt**, with a note on what Claude should have told the user (what changes,
+  how to undo it, which instruction led here): pushing, GitHub changes, publishing, deploying, copying to
+  other machines, sending data or email, git actions that can lose work, database deletes and migrations,
+  deleting files, `sudo`, `chmod 777`, system and package installs, changing Claude configuration,
+  committing directly on main/master.
+- Secret **reads** (Read / Grep) are checked in the read hook, which never blocks because of its own
+  error: a broken script must not stop every read in every session. For a hard line that needs no
+  script, use Claude Code's own deny rules (README, "What the protections can and can't do").
+- **Turn it off on a machine** that has its own safety hooks: set `HOLD_MY_DEV_SPECS_SAFETY=off` in the
+  `env` section of `~/.claude/settings.json`. In a project: profile `minimal`, or `"safety"` in
+  `disabledHooks`. Broken or unfinished settings keep it on.
+
 ## Stop checks (strict)
 Only while building (both approvals in, stage `build` or `validate`), and only when **source** files
 changed since the last check (git working tree; without git: every reply), the hook runs
