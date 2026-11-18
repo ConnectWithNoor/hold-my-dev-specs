@@ -18,7 +18,7 @@ While it is unfinished or broken, only the master may repair it (or anything els
 When the master starts one of these helpers without naming a model, a hook fills in the tier's model
 (in every profile), so a helper never silently runs on the session's, often more expensive, model.
 A different model the master names on purpose is kept, and the brief notes it.
-| `paths.open` | Paths editable before both approvals (everything else is gated) | `["specs/**", "docs/**"]` |
+| `paths.open` | Paths editable before both approvals (everything else is gated) | `["specs/**", "docs/**", "CLAUDE.md"]` (project rules and lessons are documentation, so setup and retro can always write them) |
 | `paths.protected` | Paths implementers may never touch: quality configs (lint / format / typecheck + their ignore files), CI, guardrails. `specs/**` and the test paths below are always protected too, without being listed (write rights: [artifacts.md](artifacts.md)) | proposed from the repo |
 | `paths.tests` | Where tests live. Only the test author writes here | detected from the repo, confirmed |
 | `commands.test` / `lint` / `format` / `typecheck` | Commands the verifier runs; in `strict`, format / lint / typecheck also run after each reply (see "Stop checks"). `{files}` in a command is replaced by the changed **source** files. Write format commands with `{files}` (e.g. `prettier --write {files}`), not for the whole project: a whole-project formatter could change locked specs or protected files. `null` = none | detected from the repo, confirmed; setup suggests the `{files}` form |

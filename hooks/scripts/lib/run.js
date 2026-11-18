@@ -6,6 +6,8 @@
 //   (Exit 1 would let the action through, so it is never used.)
 // - onError 'warn' (UserPromptSubmit, Stop): exit 2 there would swallow the user's message or keep
 //   Claude from stopping. Instead: exit 0, do nothing (e.g. record no approval), show a ⚠ warning.
+// - onError 'pass' (PreToolUse on Read): this plugin gates no reads, so a problem must never block one.
+//   Exit 0, no output: Claude Code's normal permission flow decides.
 
 function readInput(stream) {
   return new Promise((resolve, reject) => {
@@ -25,7 +27,7 @@ function readInput(stream) {
   });
 }
 
-const ON_ERROR = ['block', 'warn'];
+const ON_ERROR = ['block', 'warn', 'pass'];
 
 async function run(handler, io = {}, { onError = 'block' } = {}) {
   if (!ON_ERROR.includes(onError)) throw new Error(`unknown onError mode: ${onError}`);
@@ -40,6 +42,7 @@ async function run(handler, io = {}, { onError = 'block' } = {}) {
     return 0;
   } catch (err) {
     const message = err && err.message ? err.message : String(err);
+    if (onError === 'pass') return 0;
     if (onError === 'warn') {
       stderr.write(`hold-my-dev-specs: ${message} — nothing was changed\n`);
       stdout.write(JSON.stringify({ systemMessage: `⚠ hold-my-dev-specs: ${message} — nothing was changed` }));

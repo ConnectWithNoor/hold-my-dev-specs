@@ -28,11 +28,42 @@ test('hooks.json is valid and points at existing scripts', () => {
       }
     }
   }
-  // Only tool-call hooks block on failure; message and Stop hooks must not.
-  assert.equal(cfg.hooks.PreToolUse[0].hooks[0].onFailure, 'block');
+  // Only the write/Agent hook blocks on failure; Read, message and Stop hooks must not.
+  const [writes, reads] = cfg.hooks.PreToolUse;
+  assert.equal(writes.hooks[0].onFailure, 'block');
+  assert.match(writes.matcher, /\bAgent\b/);
+  assert.doesNotMatch(writes.matcher, /\bRead\b/);
+  assert.equal(reads.matcher, 'Read');
+  assert.equal(reads.hooks[0].onFailure, undefined);
+  assert.match(reads.hooks[0].command, /pre-read\.js/);
   assert.equal(cfg.hooks.UserPromptSubmit[0].hooks[0].onFailure, undefined);
   assert.equal(cfg.hooks.Stop[0].hooks[0].onFailure, undefined);
-  assert.match(cfg.hooks.PreToolUse[0].matcher, /\bAgent\b/);
+});
+
+test('pre-read: the plugin\'s own guide → allow', () => {
+  const file = path.join(__dirname, '../../guides/lifecycle.md');
+  const r = spawnSync(process.execPath, [path.join(SCRIPTS, 'pre-read.js')], {
+    input: JSON.stringify({ tool_name: 'Read', tool_input: { file_path: file } }),
+    env: { ...process.env, CLAUDE_PLUGIN_ROOT: path.join(__dirname, '../..') },
+    encoding: 'utf8',
+  });
+  assert.equal(r.status, 0);
+  assert.equal(JSON.parse(r.stdout).hookSpecificOutput.permissionDecision, 'allow');
+});
+
+test('pre-read: garbled input or a crash → never blocks (exit 0, no output)', () => {
+  for (const input of ['{"tool_name": "Re', '', '[1]']) {
+    const r = runScript('pre-read.js', input, makeProject());
+    assert.equal(r.code, 0, JSON.stringify(input));
+    assert.equal(r.stdout, '');
+  }
+});
+
+test('pre-read: a project file → no decision (normal permission flow)', () => {
+  const root = makeProject();
+  const r = runScript('pre-read.js', JSON.stringify({ cwd: root, tool_name: 'Read', tool_input: { file_path: path.join(root, 'specs/ACTIVE') } }), root);
+  assert.equal(r.code, 0);
+  assert.equal(r.stdout, '');
 });
 
 test('pre-tool: Agent call is routed to the context manifest', () => {

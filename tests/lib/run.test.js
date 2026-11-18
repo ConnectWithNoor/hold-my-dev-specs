@@ -69,6 +69,18 @@ test('warn mode, normal run → handler output unchanged', async () => {
   assert.deepEqual(JSON.parse(r.stdout), { ok: 1 });
 });
 
+// onError 'pass' — the Read hook: never block, never print.
+for (const [name, text, handler] of [
+  ['garbled input', '{"a":', () => ({ never: true })],
+  ['handler crash', '{}', () => { throw new Error('boom'); }],
+]) {
+  test(`pass mode, ${name} → exit 0, no output`, async () => {
+    const r = await runWith(text, handler, { onError: 'pass' });
+    assert.equal(r.code, 0);
+    assert.equal(r.stdout, '');
+  });
+}
+
 test('unknown onError mode is a programming error', async () => {
   await assert.rejects(runWith('{}', () => ({}), { onError: 'ignore' }));
 });
