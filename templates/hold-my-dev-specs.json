@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "profile": null,
+  "disabledHooks": null,
+  "models": { "strongest": null, "mid": null },
+  "paths": { "open": null, "protected": null },
+  "commands": { "test": null, "lint": null, "format": null, "typecheck": null },
+  "verification": {
+    "signals": null,
+    "tools": null,
+    "passThreshold": null,
+    "lenses": null,
+    "highRiskAreas": null
+  },
+  "fixLoop": { "maxRounds": null },
+  "contextManifest": { "maxFileBytes": null, "maxTotalBytes": null },
+  "workflowState": { "skipKeyword": null },
+  "ship": { "manualReview": null, "deploy": null, "monitor": null },
+  "git": { "mainBranch": null, "merge": null }
+}
