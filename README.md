@@ -12,5 +12,8 @@ only after your approval does it build the work in small, checked steps.
 - **Node.js 22 or newer.** Node.js runs the plugin's small check scripts (hooks).
 - Tested on **Linux only** so far.
 
+## Developer notes
+- Run the tests: `npm test` (uses Node's built-in test runner; nothing to install).
+
 ## License
 [MIT](LICENSE): free to use, change and share; keep the copyright notice.

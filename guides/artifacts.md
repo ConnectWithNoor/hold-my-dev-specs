@@ -45,6 +45,7 @@ Hooks enforce this table; the helper is known from the hook input (`hold-my-dev-
 | Spec-miner | `specs/baseline/` only | `spec-miner.md` |
 | Shipper | its report only; deploy and monitor commands come from the project settings and stay Ask first | `ship.md` |
 | Master | specs, ledger (approval values excepted), manifests, `ACTIVE`; source code through the same gate; in `strict` never quality configs | `final-check.md` |
+| Any other agent (not from this plugin, e.g. Claude Code's general-purpose helper) | source code through the gate only; never protected paths | none: no report files |
 
 A helper may write only its **own** report file name; any other file inside `reports/` is denied.
 

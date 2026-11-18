@@ -1,0 +1,10 @@
+{
+  "name": "hold-my-dev-specs",
+  "private": true,
+  "description": "Development scripts for the hold-my-dev-specs Claude Code plugin. No dependencies.",
+  "license": "MIT",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "test": "node --test \"tests/**/*.test.js\""
+  }
+}
