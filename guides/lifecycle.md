@@ -82,7 +82,8 @@ fill in the tier's model; name a model only to escalate on purpose.
    task passes only if **all** of them pass.
 4. **FAIL** → a **fresh** implementer as fixer, brief = task + the verifier's findings + the files
    changed so far; then verify again (next round). After `fixLoop.maxRounds` failed rounds: stop and ask
-   the user, with the reports as evidence.
+   the user, with the reports as evidence, and offer the `retro` skill's **break-loop analysis** (why
+   the rounds didn't solve it) before deciding how to go on.
 5. **PASS** → task `verified` in the ledger, then **one commit** for the task (Conventional Commits:
    `type(scope): summary`, body names the feature and task; no AI attribution lines).
 
@@ -111,7 +112,8 @@ run result; anything open.
 ## 7. Review
 `stage: review`. Ask the user to check the result (`ship.manualReview`: local or staging), with exact
 steps to try it. Wait for a clear yes ("checked, OK to ship"). Problems → back to build (bug) or spec
-(wrong requirement).
+(wrong requirement). A bug found here **got past the verifier**: offer the `retro` skill's break-loop
+analysis once it is fixed. The same goes for a bug found after shipping or by a later feature.
 
 ## 8. Ship
 `stage: ship`. Merge the feature branch as `git.merge` says (`local`: fast-forward into the main
@@ -120,4 +122,5 @@ branch; `pr`: open a pull request — leaving the machine always needs the user'
 
 ## 9. Done
 `stage: done`, clear `specs/ACTIVE`, report to the user (done · how it was checked · what's left ·
-next step), and offer the `retro` skill.
+next step), and offer the `retro` skill (it starts with the break-loop analysis if a task hit the round
+cap or a bug got past the verifier).

@@ -46,7 +46,7 @@ Hooks enforce this table; the helper is known from the hook input (`hold-my-dev-
 | Explorer | its report only | `explore-<topic>.md` |
 | Spec-miner | `specs/baseline/**` only, its report included (`specs/baseline/report.md`) | — |
 | Shipper | its report only; deploy and monitor commands come from the project settings and stay Ask first | `ship.md` |
-| Master | specs (approved ones locked), ledger (approval values and `done` excepted), manifests, `ACTIVE`; the settings file only with a permission prompt; everything else through the same gate; in `strict` never protected or test paths (`specs/**` excepted) | `final-check.md` |
+| Master | specs (approved ones locked), ledger (approval values and `done` excepted), manifests, `ACTIVE`; the settings file only with a permission prompt; everything else through the same gate; in `strict` never protected or test paths (`specs/**` excepted) | `final-check.md`; `break-loop-<task>.md` (retro, only after the user's yes) |
 | Any other agent (not from this plugin, e.g. Claude Code's general-purpose helper) | source code through the gate only; never protected paths | none: no report files |
 
 No helper or other agent may ever change `.claude/hold-my-dev-specs.json`, and while the settings are

@@ -71,6 +71,54 @@ test('verifier computes the weighted score with a command and uses only that val
   assert.match(text, /Use the computed value only/);
 });
 
+// ── Retro break-loop (D65, D43) ──────────────────────────────────────────
+test('retro: break-loop runs on the two triggers, and its description lets the agent start it', () => {
+  const { meta, body } = parse(path.join(ROOT, 'skills', 'retro', 'SKILL.md'));
+  assert.match(meta.description, /fix-round cap was hit/);
+  assert.match(meta.description, /bug got past the verifier/);
+  assert.match(body, /\*\*fix-round cap\*\* was hit/);
+  assert.match(body, /\*\*bug got past the verifier\*\*/);
+  assert.match(body, /Without either trigger, skip straight to part B/);
+});
+
+test('retro: the analysis covers all five root-cause categories and the four questions', () => {
+  const { body } = parse(path.join(ROOT, 'skills', 'retro', 'SKILL.md'));
+  for (const category of ['missing spec', 'cross-layer contract', 'change propagation', 'test gap', 'implicit assumption']) {
+    assert.ok(body.includes(`- ${category} —`), category);
+  }
+  for (const field of ['Root cause:', 'Why the earlier fixes failed:', 'Prevention:', 'Similar places:']) {
+    assert.ok(body.includes(field), field);
+  }
+  assert.match(body, /Pick exactly one root cause/);
+});
+
+test('retro: nothing is written without the user\'s yes; locked specs go through revoke', () => {
+  const { body } = parse(path.join(ROOT, 'skills', 'retro', 'SKILL.md'));
+  assert.match(body, /\*\*Nothing is written without the user's yes\*\*/);
+  assert.match(body, /Write nothing the user didn't say yes to/);
+  assert.match(body, /the user types `revoke` first/);
+  assert.match(body, /you don't fix code here/);
+});
+
+test('retro: an active feature changes its spec via revoke; a done feature stays as it is and gets a new feature', () => {
+  const { body } = parse(path.join(ROOT, 'skills', 'retro', 'SKILL.md'));
+  assert.match(body, /\*\*Feature still active:\*\* approved documents are locked, so the user types `revoke` first/);
+  assert.match(body, /\*\*Feature already done:\*\* its spec, rubric and plan stay exactly as they are/);
+  assert.match(body, /a finished feature is\s+a record and stays locked/);
+  assert.match(body, /The correction becomes a \*\*new feature\*\*, whose spec names the old\s+criterion it replaces/);
+});
+
+test('playbook offers the break-loop at both trigger moments', () => {
+  const text = fs.readFileSync(path.join(ROOT, 'guides', 'lifecycle.md'), 'utf8');
+  assert.match(text, /fixLoop.maxRounds` failed rounds[\s\S]{0,200}break-loop analysis/);
+  assert.match(text, /\*\*got past the verifier\*\*: offer the `retro` skill's break-loop/);
+});
+
+test('the break-loop report name is in the write-rights table', () => {
+  const text = fs.readFileSync(path.join(ROOT, 'guides', 'artifacts.md'), 'utf8');
+  assert.match(text, /`break-loop-<task>\.md` \(retro, only after the user's yes\)/);
+});
+
 test('setup skill offers models the Agent tool accepts, or tests other names first', () => {
   const { body } = parse(path.join(ROOT, 'skills', 'setup', 'SKILL.md'));
   assert.match(body, /aliases listed in that tool's description/);
