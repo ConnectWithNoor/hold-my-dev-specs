@@ -14,6 +14,10 @@ While it is unfinished or broken, only the master may repair it (or anything els
 | `disabledHooks` | Single hooks switched off: `plan-gate` · `verifier-integrity` · `safety` · `context-manifest` · `workflow-state` · `stop-checks` | `[]` |
 | `models.strongest` | Model for verifier, test author, spec-miner | asked, no suggestion |
 | `models.mid` | Model for implementer, explorer, shipper | asked, no suggestion |
+
+When the master starts one of these helpers without naming a model, a hook fills in the tier's model
+(in every profile), so a helper never silently runs on the session's, often more expensive, model.
+A different model the master names on purpose is kept, and the brief notes it.
 | `paths.open` | Paths editable before both approvals (everything else is gated) | `["specs/**", "docs/**"]` |
 | `paths.protected` | Paths implementers may never touch: quality configs (lint / format / typecheck + their ignore files), CI, guardrails. `specs/**` and the test paths below are always protected too, without being listed (write rights: [artifacts.md](artifacts.md)) | proposed from the repo |
 | `paths.tests` | Where tests live. Only the test author writes here | detected from the repo, confirmed |
@@ -22,7 +26,7 @@ While it is unfinished or broken, only the master may repair it (or anything els
 | `verification.tools` | Plugins / MCP servers / CLIs granted for validation | asked |
 | `verification.passThreshold` | Weighted rubric score needed to pass (1–10) | `7` |
 | `verification.lenses` | Extra review angles: `silent-failure` · `security` | asked |
-| `verification.highRiskAreas` | Paths/topics that get a separate specialist reviewer | asked |
+| `verification.highRiskAreas` | Paths that get a separate specialist reviewer: when a task changes one, the master also starts one verifier in lens mode per active lens, and the task passes only if all of them pass | asked |
 | `fixLoop.maxRounds` | Verifier ↔ fixer rounds before asking the user | `3` |
 | `contextManifest.maxFileBytes` / `maxTotalBytes` | Caps for pasted files | `32768` / `131072` |
 | `workflowState.skipKeyword` | Word that hides the per-turn status note | `#nostate` |

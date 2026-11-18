@@ -42,7 +42,7 @@ Hooks enforce this table; the helper is known from the hook input (`hold-my-dev-
 |---|---|---|
 | Implementer / fixer | source code (gated); never protected paths | `<task>-impl.md` |
 | Test author | `paths.tests` only (gated) | `<task>-tests.md` |
-| Verifier | its report only (runs tests, changes nothing) | `<task>-verify-<round>.md` |
+| Verifier | its report only (runs tests, changes nothing) | `<task>-verify-<round>.md`; lens mode: `<task>-verify-<round>-<lens>.md` |
 | Explorer | its report only | `explore-<topic>.md` |
 | Spec-miner | `specs/baseline/**` only, its report included (`specs/baseline/report.md`) | — |
 | Shipper | its report only; deploy and monitor commands come from the project settings and stay Ask first | `ship.md` |

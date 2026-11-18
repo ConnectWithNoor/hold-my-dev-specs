@@ -1,14 +1,10 @@
 'use strict';
-// PreToolUse on Agent: pastes the files listed in the task's context manifest into the helper's brief.
-// Format: guides/artifacts.md ("Context manifest"). Returns allow + updatedInput, a deny for a broken
-// manifest, or undefined to leave the call alone.
+// Context manifest: the files listed for a task, pasted into the helper's brief.
+// Format: guides/artifacts.md ("Context manifest"). Used by the Agent rule in agent-call.js.
 const fs = require('fs');
 const path = require('path');
-const { projectRoot, loadConfig, SPECS_DIR } = require('./project');
-const { isHookEnabled } = require('./profile');
-const { whoIsCalling } = require('./agents');
+const { SPECS_DIR } = require('./project');
 const { realProjectPath, toProjectPath } = require('./paths');
-const { allow, deny } = require('./output');
 
 const TASK_LINE = /^hmds-task:\s*(\d{3}-[a-z0-9][a-z0-9-]*)\/(T\d{2,})\s*$/;
 const MAX_FOLDER_ENTRIES = 200;
@@ -26,9 +22,6 @@ const looksSecret = (rel) => !SAFE_EXAMPLE.test(rel) && SECRET.some((re) => re.t
 
 const NO_LINE = 'hold-my-dev-specs: no "hmds-task: <feature>/<task>" first line in this brief, so no context files were pasted. Read the files you need yourself.';
 
-function withNote(toolInput, note) {
-  return allow(undefined, { updatedInput: { ...toolInput, prompt: `${toolInput.prompt}\n\n${note}` } });
-}
 
 function checkManifest(m, task) {
   const entry = (e) => e && typeof e.path === 'string' && e.path && (e.why === undefined || typeof e.why === 'string');
@@ -88,33 +81,26 @@ function buildBlock(root, ref, manifestRel, m, caps) {
   return parts.join('\n');
 }
 
-function decideAgentCall(input, env) {
-  const root = projectRoot(input, env);
-  const cfg = loadConfig(root);
-  if (cfg.status !== 'ok' || !isHookEnabled('context-manifest', cfg.config, env)) return undefined;
-  const ti = input.tool_input || {};
-  if (typeof ti.prompt !== 'string') throw new Error('Agent call has no prompt');
-
-  const ours = whoIsCalling({ agent_type: ti.subagent_type }).kind === 'helper';
-  const first = ti.prompt.split('\n').find((l) => l.trim());
+// What the manifest adds to a brief: { note } (text to append), { deny } (broken manifest), or null.
+function manifestFor(prompt, ours, root, config) {
+  const first = prompt.split('\n').find((l) => l.trim());
   const match = first && first.trim().match(TASK_LINE);
-  if (!match) return ours ? withNote(ti, NO_LINE) : undefined;
+  if (!match) return ours ? { note: NO_LINE } : null;
 
   const [, feature, task] = match;
   const ref = `${feature}/${task}`;
   const manifestRel = `${SPECS_DIR}/${feature}/manifests/${task}.json`;
   const file = path.join(root, manifestRel);
   if (!fs.existsSync(file)) {
-    return withNote(ti, `hold-my-dev-specs: no context manifest at ${manifestRel}, so no files were pasted. Read the files you need yourself.`);
+    return { note: `hold-my-dev-specs: no context manifest at ${manifestRel}, so no files were pasted. Read the files you need yourself.` };
   }
   let m;
   try { m = JSON.parse(fs.readFileSync(file, 'utf8')); } catch {
-    return deny(`hold-my-dev-specs: ${manifestRel} is not valid JSON. Fix it before starting the helper.`);
+    return { deny: `hold-my-dev-specs: ${manifestRel} is not valid JSON. Fix it before starting the helper.` };
   }
   const problem = checkManifest(m, task);
-  if (problem) return deny(`hold-my-dev-specs: ${manifestRel} ${problem}. Format: guides/artifacts.md.`);
-
-  return withNote(ti, buildBlock(root, ref, manifestRel, m, cfg.config.contextManifest));
+  if (problem) return { deny: `hold-my-dev-specs: ${manifestRel} ${problem}. Format: guides/artifacts.md.` };
+  return { note: buildBlock(root, ref, manifestRel, m, config.contextManifest) };
 }
 
-module.exports = { TASK_LINE, looksSecret, decideAgentCall };
+module.exports = { TASK_LINE, looksSecret, manifestFor };

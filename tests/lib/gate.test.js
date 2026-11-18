@@ -176,6 +176,10 @@ test('verifier, explorer, shipper: own report only', () => {
     assert.ok(denied(write(root, 'docs/x.md', H(who))), `${who} docs`);
   }
   assert.ok(denied(bash(root, 'npm test > src/out.txt', H('verifier'))));
+  assert.equal(write(root, `${REPORTS}/T01-verify-2-security.md`, H('verifier')), undefined, 'lens report');
+  assert.equal(write(root, `${REPORTS}/T01-verify-1-silent-failure.md`, H('verifier')), undefined, 'lens report');
+  assert.ok(denied(write(root, `${REPORTS}/T01-verify-2-Security.md`, H('verifier'))), 'lens name lowercase only');
+  assert.ok(denied(write(root, `${REPORTS}/T01-verify-2-security.md`, H('implementer'))), 'not the implementer');
   assert.equal(bash(root, 'npm test', H('verifier')), undefined);
 });
 

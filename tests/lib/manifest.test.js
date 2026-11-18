@@ -3,7 +3,8 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
-const { decideAgentCall, looksSecret } = require('../../hooks/scripts/lib/manifest');
+const { looksSecret } = require('../../hooks/scripts/lib/manifest');
+const { decideAgentCall } = require('../../hooks/scripts/lib/agent-call');
 const { validConfig, makeProject } = require('../helpers');
 
 const put = (root, rel, text) => {

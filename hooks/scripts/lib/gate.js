@@ -21,7 +21,7 @@ const LOCKABLE = /^specs\/([^/]+)\/(spec|rubric|plan)\.md$/;
 const REPORTS = {
   implementer: /^T\d{2,}-impl\.md$/,
   'test-author': /^T\d{2,}-tests\.md$/,
-  verifier: /^T\d{2,}-verify-\d+\.md$/,
+  verifier: /^T\d{2,}-verify-\d+(-[a-z][a-z0-9-]*)?\.md$/, // optional lens: T01-verify-1-security.md
   explorer: /^explore-[a-z0-9][a-z0-9-]*\.md$/,
   shipper: /^ship\.md$/,
 };
@@ -203,4 +203,4 @@ function decideToolCall(input, env) {
   return askReason ? ask(askReason) : undefined; // any deny wins over ask
 }
 
-module.exports = { writeTargets, contentAfter, decideToolCall };
+module.exports = { REPORTS, writeTargets, contentAfter, decideToolCall };
