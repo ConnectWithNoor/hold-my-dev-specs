@@ -17,7 +17,7 @@ While it is unfinished or broken, only the master may repair it (or anything els
 | `paths.open` | Paths editable before both approvals (everything else is gated) | `["specs/**", "docs/**"]` |
 | `paths.protected` | Paths implementers may never touch: quality configs (lint / format / typecheck + their ignore files), CI, guardrails. `specs/**` and the test paths below are always protected too, without being listed (write rights: [artifacts.md](artifacts.md)) | proposed from the repo |
 | `paths.tests` | Where tests live. Only the test author writes here | detected from the repo, confirmed |
-| `commands.test` / `lint` / `format` / `typecheck` | Commands the verifier (and strict Stop checks) run; `null` = none | detected from the repo, confirmed |
+| `commands.test` / `lint` / `format` / `typecheck` | Commands the verifier runs; in `strict`, format / lint / typecheck also run after each reply (see "Stop checks"). `{files}` in a command is replaced by the changed **source** files. Write format commands with `{files}` (e.g. `prettier --write {files}`), not for the whole project: a whole-project formatter could change locked specs or protected files. `null` = none | detected from the repo, confirmed; setup suggests the `{files}` form |
 | `verification.signals` | What the verifier can use: `browser` · `screenshot` · `logs` · `code-only` | asked |
 | `verification.tools` | Plugins / MCP servers / CLIs granted for validation | asked |
 | `verification.passThreshold` | Weighted rubric score needed to pass (1–10) | `7` |
@@ -50,4 +50,13 @@ While it is unfinished or broken, only the master may repair it (or anything els
 | Master locked out of protected and test paths too (`specs/**` excepted) | ❌ | ❌ | ✅ |
 
 The approval hook can't be disabled while the plan gate is on: the gate would never open.
+
+## Stop checks (strict)
+Only while building (both approvals in, stage `build` or `validate`), and only when **source** files
+changed since the last check (git working tree; without git: every reply), the hook runs
+`commands.format`, `lint` and `typecheck` (each up to 2 minutes). Source files = everything except
+`specs/`, `paths.open`, `paths.tests`, `paths.protected` and this settings file; only source files go
+into `{files}`. Before approval nothing runs, because source code can't be fixed then anyway. If one fails, Claude gets
+the error and **one** more turn to fix it; if it still fails, the user sees one ⚠ line and Claude stops.
+Changes the formatter makes itself don't trigger another run.
 If verifier and builder map to the same model, setup warns (the critic should differ from the builder).

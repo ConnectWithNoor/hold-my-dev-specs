@@ -28,9 +28,35 @@ test('hooks.json is valid and points at existing scripts', () => {
       }
     }
   }
-  // Only tool-call hooks block on failure; message hooks must not.
+  // Only tool-call hooks block on failure; message and Stop hooks must not.
   assert.equal(cfg.hooks.PreToolUse[0].hooks[0].onFailure, 'block');
   assert.equal(cfg.hooks.UserPromptSubmit[0].hooks[0].onFailure, undefined);
+  assert.equal(cfg.hooks.Stop[0].hooks[0].onFailure, undefined);
+  assert.match(cfg.hooks.PreToolUse[0].matcher, /\bAgent\b/);
+});
+
+test('pre-tool: Agent call is routed to the context manifest', () => {
+  const root = makeProject();
+  const input = JSON.stringify({ cwd: root, tool_name: 'Agent', tool_input: { prompt: 'x', subagent_type: 'hold-my-dev-specs:explorer' } });
+  const r = runScript('pre-tool.js', input, root);
+  assert.equal(r.code, 0);
+  assert.equal(JSON.parse(r.stdout).hookSpecificOutput.permissionDecision, 'allow');
+});
+
+test('prompt-submit: ordinary message → workflow-state note for Claude', () => {
+  const root = makeProject();
+  const r = runScript('prompt-submit.js', JSON.stringify({ cwd: root, prompt: 'hi' }), root);
+  assert.equal(r.code, 0);
+  assert.match(JSON.parse(r.stdout).hookSpecificOutput.additionalContext, /<workflow-state>/);
+});
+
+test('stop: garbled input or a crash → Claude still stops (exit 0) with a ⚠ warning', () => {
+  const r = runScript('stop.js', '{"oops', makeProject());
+  assert.equal(r.code, 0);
+  assert.match(JSON.parse(r.stdout).systemMessage, /^⚠ hold-my-dev-specs/);
+  const crash = runScript('stop.js', JSON.stringify({ cwd: '' }), '');
+  assert.equal(crash.code, 0);
+  assert.match(JSON.parse(crash.stdout).systemMessage, /^⚠ hold-my-dev-specs/);
 });
 
 test('pre-tool: closed gate → deny JSON, exit 0', () => {

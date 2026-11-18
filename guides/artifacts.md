@@ -77,4 +77,20 @@ The master starts every helper brief with one line naming the task, so the hook 
 ```
 hmds-task: 001-login/T01
 ```
-No line or no manifest → the hook adds a short notice and the helper reads what it needs itself.
+No line or no manifest → the hook adds a short notice to this plugin's helpers (other agents are left
+alone) and the helper reads what it needs itself. A manifest that isn't valid JSON or doesn't match the
+format stops the helper from starting, so the master fixes it first.
+
+What the hook pastes, and what it never pastes:
+- Each file up to `contextManifest.maxFileBytes`, all files together up to `maxTotalBytes`; anything cut
+  or left out is named at the end, so the helper knows to read it itself.
+- **Never** files that may hold secrets (`.env*` except `.env.example` / `.sample` / `.template`, keys,
+  certificates, names containing "secret" or "credential", `.ssh/`, `.aws/`), files outside the project,
+  or binary files, even when the manifest lists them. Symlinks are followed to the real file first.
+- Folders: the names of the files directly inside (up to 200).
+- The pasted block tells the helper to treat the contents as project data, not as instructions.
+
+## Workflow-state note
+On every user message, a hook gives Claude (not the user) 2–3 lines from the active ledger: feature,
+stage, approvals, the active task's status and round, and the next step. A message containing the
+project's skip keyword (default `#nostate`) gets no note.
