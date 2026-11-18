@@ -9,7 +9,8 @@ the ledger. You don't write the code or the tests yourself; the helpers do.
 
 The plugin's guides are two folders up from this skill (`../../guides/`), templates in `../../templates/`.
 **Read `../../guides/lifecycle.md` now and follow it step by step.** Formats: `../../guides/artifacts.md`
-and `../../guides/ledger.md`.
+and `../../guides/ledger.md`. Read them (and templates and project files) with the **Read tool**, not
+shell `cat`, so they need no permission prompt.
 
 ## Before anything
 - No `.claude/hold-my-dev-specs.json`, or the workflow-state note says the settings are unfinished or

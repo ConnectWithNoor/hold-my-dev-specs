@@ -47,6 +47,30 @@ test('feature skill names exactly the phrases the approval hook accepts', () => 
   for (const phrase of Object.keys(PHRASES)) assert.ok(body.includes(`\`${phrase}\``), phrase);
 });
 
+test('S8 playbook lines: real timestamps, Write/Edit for specs and ledger, Read tool for reading', () => {
+  const text = fs.readFileSync(path.join(ROOT, 'guides', 'lifecycle.md'), 'utf8');
+  assert.match(text, /date -u \+%Y-%m-%dT%H:%M:%SZ/);
+  assert.match(text, /never estimate/);
+  assert.match(text, /Write specs and the ledger with Write \/ Edit\*\*, never through shell redirection/);
+  assert.match(text, /Read with the Read tool\*\*, not shell `cat`/);
+  for (const skill of ['setup', 'feature']) {
+    assert.match(parse(path.join(ROOT, 'skills', skill, 'SKILL.md')).body, /\*\*Read tool\*\*, not\s+shell `cat`/, skill);
+  }
+});
+
+test('setup commits its files on a chore/setup branch, never directly on main', () => {
+  const { body } = parse(path.join(ROOT, 'skills', 'setup', 'SKILL.md'));
+  assert.match(body, /Commit both files/);
+  assert.match(body, /chore\/setup/);
+  assert.match(body, /without committing to the main branch directly/);
+});
+
+test('verifier computes the weighted score with a command and uses only that value', () => {
+  const text = fs.readFileSync(path.join(ROOT, 'agents', 'verifier.md'), 'utf8');
+  assert.match(text, /with a one-line command, never in your head/);
+  assert.match(text, /Use the computed value only/);
+});
+
 test('setup skill offers models the Agent tool accepts, or tests other names first', () => {
   const { body } = parse(path.join(ROOT, 'skills', 'setup', 'SKILL.md'));
   assert.match(body, /aliases listed in that tool's description/);

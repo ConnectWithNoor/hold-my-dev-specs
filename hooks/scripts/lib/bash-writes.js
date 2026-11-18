@@ -10,9 +10,11 @@
 const OPERATORS = ['&&', '||', ';;', ';', '|', '&', '\n', '(', ')'];
 
 // Splits a command into words and operators, honouring quotes and backslashes.
+// Heredoc text ("<<WORD" … a line holding only WORD) is data, not commands: it is skipped.
 function tokenize(cmd) {
   const tokens = [];
   let word = null;
+  let heredocs = []; // end words waiting for the next line break
   const pushWord = () => { if (word !== null) tokens.push({ t: 'word', v: word }); word = null; };
   for (let i = 0; i < cmd.length; i++) {
     const c = cmd[i];
@@ -53,7 +55,42 @@ function tokenize(cmd) {
       let j = i + 1;
       while (cmd[j] === '<') j++;
       tokens.push({ t: 'rin' });
+      if (j - i === 2) {
+        // Heredoc "<<WORD" / "<<-WORD" / "<<'WORD'": remember WORD; its text starts on the next line.
+        let k = j;
+        const stripTabs = cmd[k] === '-';
+        if (stripTabs) k++;
+        while (cmd[k] === ' ' || cmd[k] === '\t') k++;
+        let delim = '';
+        if (cmd[k] === "'" || cmd[k] === '"') {
+          const end = cmd.indexOf(cmd[k], k + 1);
+          delim = cmd.slice(k + 1, end === -1 ? cmd.length : end);
+          k = end === -1 ? cmd.length : end + 1;
+        } else {
+          while (k < cmd.length && !/[\s;&|<>()]/.test(cmd[k])) delim += cmd[k++];
+        }
+        if (delim) {
+          heredocs.push({ delim, stripTabs });
+          tokens.push({ t: 'word', v: delim }); // consumed as the "file read from" below
+          j = k;
+        }
+      }
       i = j - 1;
+    } else if (c === '\n' && heredocs.length) {
+      // End of the line that opened heredocs: skip their text up to each end line.
+      pushWord();
+      tokens.push({ t: 'op', v: '\n' });
+      let p = i + 1;
+      for (const { delim, stripTabs } of heredocs) {
+        while (p < cmd.length) {
+          const e = cmd.indexOf('\n', p);
+          const line = cmd.slice(p, e === -1 ? cmd.length : e);
+          p = e === -1 ? cmd.length : e + 1;
+          if ((stripTabs ? line.replace(/^\t+/, '') : line) === delim) break;
+        }
+      }
+      heredocs = [];
+      i = p - 1;
     } else {
       const op = OPERATORS.find((o) => cmd.startsWith(o, i));
       if (op) {
@@ -120,8 +157,9 @@ function commandTargets(words, depth) {
 
   if (SHELLS.includes(name)) {
     const c = args.indexOf('-c');
-    return c !== -1 && args[c + 1] !== undefined && depth < 3 ? bashWriteTargets(args[c + 1], depth + 1) : [];
+    return c !== -1 && args[c + 1] !== undefined && depth < 3 ? bashWrites(args[c + 1], depth + 1) : [];
   }
+  if (name === 'mkdir') return plain.map((p) => ({ path: p, kind: 'mkdir' })); // creates, never changes
   if (ALL_ARGS.includes(name)) return plain;
   if (name === 'truncate') {
     const out = [];
@@ -192,19 +230,22 @@ function commandTargets(words, depth) {
   return [];
 }
 
-function bashWriteTargets(command, depth = 0) {
+// → [{ path, kind }] where kind is "mkdir" (only creates a folder) or "write" (changes or deletes).
+// A path both created and written counts as "write".
+function bashWrites(command, depth = 0) {
   if (typeof command !== 'string') throw new Error('Bash command is not a string');
   const tokens = tokenize(command);
-  const targets = [];
+  const found = [];
+  const add = (t) => found.push(typeof t === 'string' ? { path: t, kind: 'write' } : t);
   let words = [];
-  const flush = () => { targets.push(...commandTargets(words, depth)); words = []; };
+  const flush = () => { commandTargets(words, depth).forEach(add); words = []; };
   for (let k = 0; k < tokens.length; k++) {
     const tok = tokens[k];
     if (tok.t === 'redir') {
       const next = tokens[k + 1];
       if (next && next.t === 'word') {
         k++;
-        if (!next.v.startsWith('&')) targets.push(next.v); // "2>&1" duplicates a stream, writes no file
+        if (!next.v.startsWith('&')) add(next.v); // "2>&1" duplicates a stream, writes no file
       }
     } else if (tok.t === 'rin') {
       if (tokens[k + 1] && tokens[k + 1].t === 'word') k++; // the file read from is not a target
@@ -215,7 +256,14 @@ function bashWriteTargets(command, depth = 0) {
     }
   }
   flush();
-  return [...new Set(targets.filter((t) => t && t !== '-' && !t.startsWith('/dev/')))];
+  const byPath = new Map();
+  for (const { path: p, kind } of found) {
+    if (!p || p === '-' || p.startsWith('/dev/')) continue;
+    byPath.set(p, byPath.get(p) === 'write' ? 'write' : kind);
+  }
+  return [...byPath].map(([p, kind]) => ({ path: p, kind }));
 }
 
-module.exports = { tokenize, bashWriteTargets };
+const bashWriteTargets = (command, depth) => bashWrites(command, depth).map((w) => w.path);
+
+module.exports = { tokenize, bashWrites, bashWriteTargets };

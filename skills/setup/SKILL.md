@@ -9,6 +9,8 @@ You are the master. Goal: every choice this project needs is **asked and locked*
 
 The plugin's guides are two folders up from this skill (`../../guides/`), templates in `../../templates/`.
 Read `../../guides/project-config.md` first: it lists every field, what it means and what to suggest.
+Read guides, templates and project files with the **Read tool**, not shell `cat` (plugin docs then need
+no permission prompt), and write files with Write / Edit, never through shell redirection.
 
 ## 1. Look first
 - Settings file exists and is complete → show a short summary and ask what to change.
@@ -46,8 +48,13 @@ Restate every value in one table and wait for the user's confirmation. Then:
 1. Add a short section to the project's `CLAUDE.md` (create it if missing): in plain words, that this
    project uses hold-my-dev-specs, where the settings live, and that specs live in `specs/`. Link to
    the settings file; don't copy its values.
-2. Write `.claude/hold-my-dev-specs.json` **last** — its existence switches the plugin's hooks on. If it
-   already exists, the hook shows the user a permission prompt; that is expected.
-3. Check: the next message's workflow-state note must not say "settings are unfinished / broken".
+2. Write `.claude/hold-my-dev-specs.json` **last** — its existence switches the plugin's hooks on.
+   Claude Code asks the user's permission for files in `.claude/` (and the hook does too if the file
+   already exists); that is expected.
+3. **Commit both files** without committing to the main branch directly: create `chore/setup` from the
+   main branch, commit (`chore(setup): add hold-my-dev-specs settings`, no AI attribution lines), then
+   merge it into the main branch as `git.merge` says (`local`: fast-forward; `pr`: ask the user before
+   opening a pull request). Ask the user first if the repo isn't a git repository or has uncommitted work.
+4. Check: the next message's workflow-state note must not say "settings are unfinished / broken".
 
 End with the report: done · how it was checked · what's left · next step (usually the `feature` skill).

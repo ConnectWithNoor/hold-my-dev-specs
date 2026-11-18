@@ -53,7 +53,8 @@ No helper or other agent may ever change `.claude/hold-my-dev-specs.json`, and w
 unfinished or broken, helpers may write nothing at all.
 
 A helper may write only its **own** report file name (the pattern above, inside the **active** feature's
-`reports/`); any other file inside `reports/` is denied. Shell commands that write files are checked on a
+`reports/`); any other file inside `reports/` is denied. Creating the active `reports/` folder itself
+(`mkdir -p`) is fine for every helper; deleting it is not. Shell commands that write files are checked on a
 best-effort basis only; the verifier's diff check catches what slips through. The ledger can't be written
 through the shell at all (use Edit / Write, so the approval values can be checked).
 

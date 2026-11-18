@@ -183,6 +183,27 @@ test('verifier, explorer, shipper: own report only', () => {
   assert.equal(bash(root, 'npm test', H('verifier')), undefined);
 });
 
+test('S8: helpers may create the active reports/ folder, never delete it or create others', () => {
+  const root = makeProject({ ledger: ledgerText(APPROVED) });
+  for (const who of ['test-author', 'verifier', 'explorer', 'shipper', 'implementer']) {
+    assert.equal(bash(root, `npm test 2>&1 | head -30; mkdir -p ${REPORTS}`, H(who)), undefined, `${who} mkdir`);
+    assert.ok(denied(bash(root, `rm -rf ${REPORTS}`, H(who))), `${who} rm`);
+    assert.ok(denied(bash(root, 'mkdir -p specs/002-other/reports', H(who))), `${who} other feature`);
+  }
+  assert.ok(denied(bash(root, `mkdir -p ${REPORTS}/sub`, H('verifier'))), 'sub-folder is not the reports folder');
+  assert.ok(denied(bash(root, `mkdir -p ${REPORTS}`, 'general-purpose')), 'other agents write no reports');
+});
+
+test('S8: verifier writing its own report through a heredoc → allowed', () => {
+  const root = makeProject({ ledger: ledgerText(APPROVED) });
+  const cmd = `cat > ${REPORTS}/T01-verify-2.md <<'EOF'\n# Verify\nscore 9.6 > 7 · ss, and more\nEOF`;
+  assert.equal(bash(root, cmd, H('verifier')), undefined);
+});
+
+test('spec-miner may create specs/baseline itself', () => {
+  assert.equal(bash(makeProject({ active: null }), 'mkdir -p specs/baseline', H('spec-miner')), undefined);
+});
+
 test('reports only in the ACTIVE feature', () => {
   const root = makeProject({ ledger: ledgerText(APPROVED) });
   assert.ok(denied(write(root, 'specs/002-other/reports/T01-impl.md', H('implementer'))));

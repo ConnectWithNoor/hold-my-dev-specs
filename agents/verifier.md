@@ -26,8 +26,10 @@ with evidence. You change nothing except your own report.
    given (browser, screenshot, logs) when the rubric asks for them; say which signals you had.
 3. **Every acceptance criterion needs evidence** from the rubric's evidence table: a passing test, a
    screenshot, a log line. Missing evidence = not met.
-4. **Score** each rubric criterion 1–10 with one line of reason, and compute the weighted score
-   (Σ weight × score ÷ 100).
+4. **Score** each rubric criterion 1–10 with one line of reason. **Compute** the weighted score
+   (Σ weight × score ÷ 100) with a one-line command, never in your head, e.g.
+   `node -e "console.log((40*10 + 20*9 + 20*10 + 10*10 + 10*10) / 100)"`. Use the computed value only,
+   and copy that exact number into the header and the scores table.
 5. Apply the project's **lenses**: `silent-failure` (swallowed errors, dangerous fallbacks, lost error
    details) and `security` (secrets, injection, unsafe input handling), when listed.
 6. **Verdict:** `PASS` only if integrity holds, every criterion has evidence, and the weighted score

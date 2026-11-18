@@ -16,6 +16,13 @@ intent → spec ──approve spec──→ plan ──approve plan──→ tas
 - **The ledger is the record.** Update it after every step: header (`stage`, `awaiting`, `active_task`),
   the task table, one log line. A fresh session must be able to continue from it alone. Never write
   approval values, never log approvals (the approval hook does both).
+- **Real timestamps.** Every log line gets its time from the clock (`date -u +%Y-%m-%dT%H:%M:%SZ`);
+  never estimate or round a time.
+- **Write specs and the ledger with Write / Edit**, never through shell redirection (`>`, `sed -i`,
+  `tee`); the hook accepts ledger changes only through Edit / Write. Create a new ledger by reading the
+  template and writing the filled-in file with Write.
+- **Read with the Read tool**, not shell `cat` / `sed` / `head`: plugin guides and templates, and project
+  files. Reads of the plugin's own docs then need no permission prompt in any mode.
 - **Ask, never default.** Anything missing that changes the result: pause, ask, write the answer where it
   belongs (spec, plan, or the project settings via `setup`).
 - **Plain words** in everything you write and say; explain each term the first time.

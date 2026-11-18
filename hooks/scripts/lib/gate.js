@@ -10,7 +10,7 @@ const { loadActiveLedger, parseHeader, approvalsChanged, gateOpen, isApproved } 
 const { isHookEnabled } = require('./profile');
 const { whoIsCalling } = require('./agents');
 const { matchesAny, realProjectPath } = require('./paths');
-const { bashWriteTargets } = require('./bash-writes');
+const { bashWrites } = require('./bash-writes');
 const { deny, ask } = require('./output');
 
 const FILE_TOOLS = { Write: 'file_path', Edit: 'file_path', MultiEdit: 'file_path', NotebookEdit: 'notebook_path' };
@@ -26,17 +26,18 @@ const REPORTS = {
   shipper: /^ship\.md$/,
 };
 
-// Absolute paths the tool call would write. `via` tells whether the content is known (tool) or not (bash).
+// Absolute paths the tool call would write. `via` tells whether the content is known (tool) or not (bash);
+// `kind` is "mkdir" when a shell command only creates that folder, else "write".
 function writeTargets(input) {
   const ti = input.tool_input || {};
   const cwd = input.cwd || process.cwd();
   const field = FILE_TOOLS[input.tool_name];
   if (field) {
     if (typeof ti[field] !== 'string' || !ti[field]) throw new Error(`${input.tool_name} call has no ${field}`);
-    return [{ abs: path.resolve(cwd, ti[field]), via: 'tool' }];
+    return [{ abs: path.resolve(cwd, ti[field]), via: 'tool', kind: 'write' }];
   }
   if (input.tool_name === 'Bash') {
-    return bashWriteTargets(ti.command).map((t) => ({ abs: path.resolve(cwd, t), via: 'bash' }));
+    return bashWrites(ti.command).map((w) => ({ abs: path.resolve(cwd, w.path), via: 'bash', kind: w.kind }));
   }
   return [];
 }
@@ -111,7 +112,7 @@ function lockRule(rel, root) {
   return `${rel} was approved. Ask the user to type "revoke", make the change, then ask for approval again.`;
 }
 
-function integrityRule(rel, caller, config, active, env) {
+function integrityRule(rel, kind, caller, config, active, env) {
   const isTest = matchesAny(rel, config.paths.tests);
   const inSpecs = rel === SPECS_DIR || rel.startsWith(`${SPECS_DIR}/`);
   const isProtected = isTest || inSpecs || matchesAny(rel, config.paths.protected);
@@ -130,13 +131,15 @@ function integrityRule(rel, caller, config, active, env) {
   }
   const who = caller.name;
   if (ownReport(who)) return null;
+  // Creating the active feature's reports/ folder (mkdir -p) is fine for every helper.
+  if (kind === 'mkdir' && reportsDir && rel === reportsDir.slice(0, -1)) return null;
   switch (who) {
     case 'implementer':
       return isProtected ? `The implementer may not change protected paths (${rel}): tests, quality configs, specs, CI and guardrails stay as they are. Report a disagreement instead.` : null;
     case 'test-author':
       return isTest && !inSpecs ? null : `The test author may write only test paths and its own report (${rel}).`;
     case 'spec-miner':
-      return rel.startsWith(`${SPECS_DIR}/baseline/`) ? null : `The spec-miner may write only specs/baseline/ (${rel}).`;
+      return rel === `${SPECS_DIR}/baseline` || rel.startsWith(`${SPECS_DIR}/baseline/`) ? null : `The spec-miner may write only specs/baseline/ (${rel}).`;
     default: // verifier, explorer, shipper
       return `The ${who} may write only its own report in the active feature's reports/ folder (${rel}).`;
   }
@@ -160,7 +163,7 @@ function gateRule(rel, config, active) {
 }
 
 // → { deny: reason } · { ask: reason } · null
-function checkTarget(rel, via, input, root, cfg, caller, active, env) {
+function checkTarget(rel, via, kind, input, root, cfg, caller, active, env) {
   // The settings file switches the protections on and off: helpers never touch it, the master asks the user.
   if (rel === CONFIG_REL) {
     return caller.kind === 'master'
@@ -177,7 +180,7 @@ function checkTarget(rel, via, input, root, cfg, caller, active, env) {
   }
   const config = cfg.config;
   const on = (hook) => isHookEnabled(hook, config, env);
-  const r = (on('verifier-integrity') && integrityRule(rel, caller, config, active, env))
+  const r = (on('verifier-integrity') && integrityRule(rel, kind, caller, config, active, env))
     || (on('plan-gate') && (ledgerRule(rel, via, input, root) || lockRule(rel, root) || gateRule(rel, config, active)))
     || null;
   return r ? { deny: r } : null;
@@ -193,10 +196,10 @@ function decideToolCall(input, env) {
   const active = loadActiveLedger(root);
 
   let askReason = null;
-  for (const { abs, via } of targets) {
+  for (const { abs, via, kind } of targets) {
     const rel = realProjectPath(root, abs);
     if (rel === null) continue; // outside the project: personal safety hooks decide
-    const result = checkTarget(rel, via, input, root, cfg, caller, active, env);
+    const result = checkTarget(rel, via, kind, input, root, cfg, caller, active, env);
     if (result && result.deny) return deny(`hold-my-dev-specs: ${result.deny}`);
     if (result && result.ask) askReason = result.ask;
   }

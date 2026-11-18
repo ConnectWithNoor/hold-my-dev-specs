@@ -1,7 +1,7 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { bashWriteTargets } = require('../../hooks/scripts/lib/bash-writes');
+const { bashWriteTargets, bashWrites } = require('../../hooks/scripts/lib/bash-writes');
 
 const cases = [
   // [command, expected targets]
@@ -79,6 +79,44 @@ for (const [cmd, expected] of cases) {
     assert.deepEqual(bashWriteTargets(cmd), expected);
   });
 }
+
+// ── Heredocs: their text is data, not commands (S8 finding 6) ───────────
+test('heredoc text is skipped; the redirect before it still counts', () => {
+  const cmd = "cat > specs/f/reports/T01-verify-2.md <<'EOF'\n# Verify\nscore 9 > 7, a ` backtick, rm -rf / and echo x > y\nEOF";
+  assert.deepEqual(bashWriteTargets(cmd), ['specs/f/reports/T01-verify-2.md']);
+});
+
+test('the real S8 dogfood command → only the report', () => {
+  const cmd = "grep -n \"require\" index.js test/slugify.test.js | head; cat > specs/001-slugify/reports/T01-verify-2.md <<'EOF'\n# Verify — T01, round 2 (convergence, lens: silent-failure)\n**Verdict: PASS** · weighted score 9.6 / threshold 7 · signals used: code-only (npm test, read-only node probes)\n| a | b |\nEOF";
+  assert.deepEqual(bashWriteTargets(cmd), ['specs/001-slugify/reports/T01-verify-2.md']);
+});
+
+test('commands after the heredoc end line are checked again', () => {
+  assert.deepEqual(bashWriteTargets('cat <<EOF > a.txt\nhello > not-a-file\nEOF\necho done > b.txt'), ['a.txt', 'b.txt']);
+});
+
+test('heredoc forms: unquoted, double-quoted, <<- with tabs, two heredocs on one line', () => {
+  assert.deepEqual(bashWriteTargets('cat <<END > x\n> fake\nEND'), ['x']);
+  assert.deepEqual(bashWriteTargets('cat <<"END" > x\n> fake\nEND'), ['x']);
+  assert.deepEqual(bashWriteTargets('cat <<-END > x\n\t> fake\n\tEND\necho y > z'), ['x', 'z']);
+  assert.deepEqual(bashWriteTargets('paste <<A <<B > out\n> one\nA\n> two\nB\nrm gone'), ['out', 'gone']);
+});
+
+test('heredoc without an end line: the rest is text (nothing after it is a target)', () => {
+  assert.deepEqual(bashWriteTargets('cat <<EOF > x\n> fake\nrm -rf important'), ['x']);
+});
+
+test('here-string <<< is not a heredoc', () => {
+  assert.deepEqual(bashWriteTargets('grep a <<< "text" > out.txt'), ['out.txt']);
+});
+
+// ── Kinds: mkdir only creates (S8 finding 4) ─────────────────────────────
+test('mkdir targets are marked as "mkdir", everything else as "write"', () => {
+  assert.deepEqual(bashWrites('mkdir -p specs/f/reports'), [{ path: 'specs/f/reports', kind: 'mkdir' }]);
+  assert.deepEqual(bashWrites('rm -rf specs/f/reports'), [{ path: 'specs/f/reports', kind: 'write' }]);
+  assert.deepEqual(bashWrites('mkdir d && rm -r d'), [{ path: 'd', kind: 'write' }]); // write wins
+  assert.deepEqual(bashWrites('sh -c "mkdir -p x"'), [{ path: 'x', kind: 'mkdir' }]);
+});
 
 test('known gaps stay undetected (verifier diff check is the backstop)', () => {
   assert.deepEqual(bashWriteTargets('python -c "open(\'x\',\'w\')"'), []);
