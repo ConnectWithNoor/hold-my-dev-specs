@@ -1,9 +1,11 @@
 'use strict';
+const os = require('os');
 // Best-effort list of files a shell command would write, change or delete.
 // Covers redirections (> >>), tee, sed -i, cp/mv/install/ln targets, rm/touch/truncate/mkdir/…, dd of=,
 // curl -o / wget -O, tar -x / unzip / patch / git apply (target: their folder, "." = current folder),
 // git checkout -- / git restore / git mv / git rm, and the same inside sudo / env / nohup / time / sh -c "…".
 // Moves (mv, git mv, rsync --remove-source-files) report their sources too: a moved file is changed.
+// "cd <dir>" is followed within the command (relative paths after it count from <dir>; "( … )" restores).
 // Not covered (by design): scripts run by an interpreter (python, node…), other git commands, $(…).
 // This is best-effort, not airtight; the verifier's diff check is the backstop.
 
@@ -114,11 +116,21 @@ const LAST_ARG = ['cp', 'mv', 'install', 'ln', 'rsync'];
 const base = (w) => w.split('/').pop();
 const isOption = (w) => w.startsWith('-') && w !== '-';
 
-// "dir" + "file" as a relative path ("" or "." = current folder; absolute files stay as they are).
+// "dir" + "file" as a relative path ("" or "." = current folder; absolute and ~ files stay as they are).
 function joinDir(dir, file) {
-  if (!dir || dir === '.' || file.startsWith('/')) return file;
+  if (!dir || dir === '.' || file.startsWith('/') || file.startsWith('~')) return file;
   if (file === '.') return dir;
   return `${dir.replace(/\/+$/, '')}/${file}`;
+}
+
+// The folder after "cd <args>": "cd" / "cd ~…" → the home folder; "cd -" or a folder with $ or `
+// can't be known from the text, so the folder stays as it was (best effort).
+function cdTarget(dir, args) {
+  const target = args.find((a) => !isOption(a));
+  if (target === undefined) return os.homedir();
+  if (target === '-' || /[$`]/.test(target)) return dir;
+  if (target === '~' || target.startsWith('~/')) return os.homedir() + target.slice(1);
+  return joinDir(dir, target);
 }
 
 // Values of options like "-o file", "--output file", "--output=file".
@@ -236,9 +248,19 @@ function bashWrites(command, depth = 0) {
   if (typeof command !== 'string') throw new Error('Bash command is not a string');
   const tokens = tokenize(command);
   const found = [];
-  const add = (t) => found.push(typeof t === 'string' ? { path: t, kind: 'write' } : t);
+  // Folder from earlier "cd" in this command ('' = where the command started); "( … )" restores it.
+  let dir = '';
+  const dirStack = [];
+  const add = (t) => {
+    const w = typeof t === 'string' ? { path: t, kind: 'write' } : t;
+    found.push({ ...w, path: joinDir(dir, w.path) });
+  };
   let words = [];
-  const flush = () => { commandTargets(words, depth).forEach(add); words = []; };
+  const flush = () => {
+    if (words[0] === 'cd' || words[0] === 'pushd') dir = cdTarget(dir, words.slice(1));
+    else commandTargets(words, depth).forEach(add);
+    words = [];
+  };
   for (let k = 0; k < tokens.length; k++) {
     const tok = tokens[k];
     if (tok.t === 'redir') {
@@ -251,6 +273,8 @@ function bashWrites(command, depth = 0) {
       if (tokens[k + 1] && tokens[k + 1].t === 'word') k++; // the file read from is not a target
     } else if (tok.t === 'op') {
       flush();
+      if (tok.v === '(') dirStack.push(dir);
+      if (tok.v === ')' && dirStack.length) dir = dirStack.pop();
     } else {
       words.push(tok.v);
     }

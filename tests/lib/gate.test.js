@@ -200,6 +200,18 @@ test('S8: verifier writing its own report through a heredoc → allowed', () => 
   assert.equal(bash(root, cmd, H('verifier')), undefined);
 });
 
+test('cd can\'t hide a protected write: implementer "cd tests && …" → denied', () => {
+  const root = makeProject({ ledger: ledgerText(APPROVED) });
+  assert.ok(denied(bash(root, 'cd tests && echo hack > a.test.js', H('implementer'))));
+  assert.ok(denied(bash(root, 'cd specs/001-login && sed -i s/a/b/ spec.md', H('implementer'))));
+  assert.equal(bash(root, 'cd src && echo x > a.js', H('implementer')), undefined, 'ordinary source after approval');
+});
+
+test('cd into specs/baseline: the spec-miner\'s own files are allowed', () => {
+  const root = makeProject({ active: null });
+  assert.equal(bash(root, `mkdir -p specs/baseline && cd specs/baseline && cat > a.md <<'EOF'\n# x\nEOF`, H('spec-miner')), undefined);
+});
+
 test('spec-miner may create specs/baseline itself', () => {
   assert.equal(bash(makeProject({ active: null }), 'mkdir -p specs/baseline', H('spec-miner')), undefined);
 });

@@ -45,7 +45,7 @@ const cases = [
   ["sh -c 'rm -f q'", ['q']],
   ['echo "a > b" > real.txt', ['real.txt']],
   ["echo 'x' # > not-a-target", []],
-  ['(cd sub && rm f)', ['f']],
+  ['(cd sub && rm f)', ['sub/f']],
   ['a; b > one; c >> two', ['one', 'two']],
   ['echo a > same && echo b > same', ['same']],
   ['/usr/bin/rm z', ['z']],
@@ -116,6 +116,37 @@ test('mkdir targets are marked as "mkdir", everything else as "write"', () => {
   assert.deepEqual(bashWrites('rm -rf specs/f/reports'), [{ path: 'specs/f/reports', kind: 'write' }]);
   assert.deepEqual(bashWrites('mkdir d && rm -r d'), [{ path: 'd', kind: 'write' }]); // write wins
   assert.deepEqual(bashWrites('sh -c "mkdir -p x"'), [{ path: 'x', kind: 'mkdir' }]);
+});
+
+// ── cd: later relative paths count from the new folder (S9 live finding) ──
+const HOME = require('os').homedir();
+for (const [cmd, expected] of [
+  ['cd tests && echo x > a.test.js', ['tests/a.test.js']],
+  ['cd src && rm -f old.js', ['src/old.js']],
+  ['cd a && cd b && touch f', ['a/b/f']],
+  ['cd a; cd ../c; touch f', ['a/../c/f']],
+  ['(cd sub && rm f) && rm g', ['sub/f', 'g']],
+  ['cd /abs/dir && echo > x', ['/abs/dir/x']],
+  ['cd ~ && rm x', [`${HOME}/x`]],
+  ['cd && touch y', [`${HOME}/y`]],
+  ['cd ~/proj && touch y', [`${HOME}/proj/y`]],
+  ['cd - && rm x', ['x']], // can't be known from the text: stays as it was
+  ['cd $DIR && rm x', ['x']],
+  ['cd -P real && touch f', ['real/f']],
+  ['pushd lib && touch f', ['lib/f']],
+  ['cd tests && sh -c "echo x > a.test.js"', ['tests/a.test.js']],
+  ['cd specs && git -C 001 rm spec.md', ['specs/001/spec.md']],
+  ['cd src && echo x > /tmp/abs.txt', ['/tmp/abs.txt']],
+  ['mkdir -p d && cd d && touch x', ['d', 'd/x']],
+]) {
+  test(`cd: ${JSON.stringify(cmd)} → ${JSON.stringify(expected)}`, () => {
+    assert.deepEqual(bashWriteTargets(cmd), expected);
+  });
+}
+
+test('the real S9 spec-miner command → its baseline file', () => {
+  const cmd = "mkdir -p /p/specs/baseline && cd /p/specs/baseline && cat > slugify.md <<'EOF'\n# Baseline\n> a quote\nEOF";
+  assert.deepEqual(bashWrites(cmd), [{ path: '/p/specs/baseline', kind: 'mkdir' }, { path: '/p/specs/baseline/slugify.md', kind: 'write' }]);
 });
 
 test('known gaps stay undetected (verifier diff check is the backstop)', () => {
