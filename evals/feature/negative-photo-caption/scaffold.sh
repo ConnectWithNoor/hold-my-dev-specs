@@ -1,0 +1,1 @@
+../../fixtures/configured.sh

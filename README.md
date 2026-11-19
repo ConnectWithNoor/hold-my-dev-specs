@@ -33,6 +33,8 @@ to the `env` section of the same file.
 
 ## Developer notes
 - Run the tests: `npm test` (uses Node's built-in test runner; nothing to install).
+- Run the skill-trigger evals: `npm run eval` (18 short Claude sessions that check each skill starts
+  when it should and not otherwise; costs usage, about $1.50 per run).
 
 ## License
 [MIT](LICENSE): free to use, change and share; keep the copyright notice.

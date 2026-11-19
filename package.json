@@ -3,8 +3,11 @@
   "private": true,
   "description": "Development scripts for the hold-my-dev-specs Claude Code plugin. No dependencies.",
   "license": "MIT",
-  "engines": { "node": ">=22" },
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
-    "test": "node --test \"tests/**/*.test.js\""
+    "test": "node --test \"tests/**/*.test.js\"",
+    "eval": "claude plugin eval . --ablation none --scaffold --trust-plugin --no-publish --max-cost-usd 5"
   }
 }
