@@ -119,6 +119,27 @@ test('the break-loop report name is in the write-rights table', () => {
   assert.match(text, /`break-loop-<task>\.md` \(retro, only after the user's yes\)/);
 });
 
+// ── Spec-miner and baseline files ────────────────────────────────────────
+test('setup offers the spec-miner only for existing code without a baseline, and it can be declined', () => {
+  const { body } = parse(path.join(ROOT, 'skills', 'setup', 'SKILL.md'));
+  assert.match(body, /## 4\. Offer the spec-miner \(only for existing code\)/);
+  assert.match(body, /Only if the repo already has code and there is no `specs\/baseline\/` yet/);
+  assert.match(body, /as an offer the user may decline/);
+  assert.match(body, /\*\*No\*\* → nothing happens/);
+});
+
+test('features link to baseline criteria and never copy or edit them', () => {
+  const lifecycle = fs.readFileSync(path.join(ROOT, 'guides', 'lifecycle.md'), 'utf8');
+  assert.match(lifecycle, /The spec \*\*links\*\* to the baseline criteria it changes/);
+  assert.match(lifecycle, /never copies them; baseline\s+files are a record and are never edited by a feature/);
+  const spec = fs.readFileSync(path.join(ROOT, 'templates', 'spec.md'), 'utf8');
+  assert.match(spec, /## Baseline it changes/);
+  assert.match(spec, /as links — never copied/);
+  const artifacts = fs.readFileSync(path.join(ROOT, 'guides', 'artifacts.md'), 'utf8');
+  assert.match(artifacts, /\*\*A record of what existing code does today\*\*/);
+  assert.match(artifacts, /Features \*\*link\*\* to these ids/);
+});
+
 test('setup skill offers models the Agent tool accepts, or tests other names first', () => {
   const { body } = parse(path.join(ROOT, 'skills', 'setup', 'SKILL.md'));
   assert.match(body, /aliases listed in that tool's description/);

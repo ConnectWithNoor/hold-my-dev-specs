@@ -25,9 +25,31 @@ function parse(file) {
 
 const files = fs.readdirSync(DIR).filter((f) => f.endsWith('.md'));
 
-test('the S6 roster is present', () => {
-  for (const name of ['explorer', 'test-author', 'implementer', 'verifier', 'shipper']) {
-    assert.ok(files.includes(`${name}.md`), name);
+test('the whole roster is present (every helper the hooks know has an agent file)', () => {
+  for (const name of HELPERS) assert.ok(files.includes(`${name}.md`), name);
+});
+
+test('spec-miner: records what the code does, with evidence and uncertainty, only in specs/baseline/', () => {
+  const { tools, disallowed, body } = parse('spec-miner.md');
+  for (const t of ['Agent', 'Task', 'NotebookEdit']) assert.ok(!tools.includes(t), t);
+  assert.ok(disallowed.includes('NotebookEdit'));
+  assert.match(body, /what the code does today\*\* — not what it should do/);
+  assert.match(body, /Never\s+write what the code \*should\* do/);
+  assert.match(body, /\*\*Evidence for every block:\*\* `path\/to\/file:line`/);
+  assert.match(body, /No evidence → it doesn't go in/);
+  assert.match(body, /`Sure: high · medium · low`/);
+  assert.match(body, /## Uncertain/);
+  assert.match(body, /`specs\/baseline\/<area>\.md`/);
+  assert.match(body, /`specs\/baseline\/index\.md`/);
+  assert.match(body, /never through shell redirection/);
+  assert.match(body, /You may write only `specs\/baseline\/`/);
+  for (const w of ['**Given**', '**When**', '**Then**', '### BR1', '### BI1']) assert.ok(body.includes(w), w);
+});
+
+test('baseline template matches the spec-miner\'s shape', () => {
+  const t = fs.readFileSync(path.join(__dirname, '..', 'templates', 'baseline.md'), 'utf8');
+  for (const w of ['## Requirements', '## Invariants', '## Uncertain', '**Given**', 'Evidence:', 'Sure:', 'never edit or copy']) {
+    assert.ok(t.includes(w), w);
   }
 });
 

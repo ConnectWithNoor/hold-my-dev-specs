@@ -31,6 +31,7 @@ One feature is active at a time. `ACTIVE` is empty (or missing) when none is.
 | `ledger.md` | master; approval lines only by the approval hook | — | See [ledger.md](ledger.md) |
 | `manifests/<task>.json` | master | — | See "Context manifest" below |
 | `reports/*` | each helper writes its own report | master | Names in "Who may write what" below |
+| `specs/baseline/<area>.md` | spec-miner only (offered by setup for existing code) | user, after mining | **A record of what existing code does today** (template `templates/baseline.md`): Requirement (`BR1.1`) and Invariant (`BI1`) blocks in Given/When/Then, each with `file:line` evidence and `Sure: high · medium · low`. Features **link** to these ids in their spec ("Baseline it changes") and never copy or edit them. Index of mined areas: `specs/baseline/index.md` |
 
 ## Who may write what
 Hooks enforce this table; the helper is known from the hook input (`hold-my-dev-specs:<helper>`).
@@ -44,7 +45,7 @@ Hooks enforce this table; the helper is known from the hook input (`hold-my-dev-
 | Test author | `paths.tests` only (gated) | `<task>-tests.md` |
 | Verifier | its report only (runs tests, changes nothing) | `<task>-verify-<round>.md`; lens mode: `<task>-verify-<round>-<lens>.md` |
 | Explorer | its report only | `explore-<topic>.md` |
-| Spec-miner | `specs/baseline/**` only, its report included (`specs/baseline/report.md`) | — |
+| Spec-miner | `specs/baseline/**` only, its summary included (`specs/baseline/index.md`) | — |
 | Shipper | its report only; deploy and monitor commands come from the project settings and stay Ask first | `ship.md` |
 | Master | specs (approved ones locked), ledger (approval values and `done` excepted), manifests, `ACTIVE`; the settings file only with a permission prompt; everything else through the same gate; in `strict` never protected or test paths (`specs/**` excepted) | `final-check.md`; `break-loop-<task>.md` (retro, only after the user's yes) |
 | Any other agent (not from this plugin, e.g. Claude Code's general-purpose helper) | source code through the gate only; never protected paths | none: no report files |

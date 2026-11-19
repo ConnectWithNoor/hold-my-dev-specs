@@ -41,6 +41,10 @@ and wait for confirmation. Then:
   (`stage: spec`, `awaiting: none`, approvals `no`), and point `specs/ACTIVE` at it.
 
 ## 2. Spec (full lane)
+If `specs/baseline/` exists, read the baseline files of the areas this change touches first: they say
+what the code does today. The spec **links** to the baseline criteria it changes (section "Baseline it
+changes", e.g. "`specs/baseline/auth.md` BR1.2 → replaced by AC1.1") and never copies them; baseline
+files are a record and are never edited by a feature.
 Write `spec.md` and `rubric.md` from the templates. Every requirement gets Given/When/Then criteria
 with ids; every criterion gets evidence in the rubric. Use the explorer for facts you'd otherwise have
 to read a lot for. **Open questions must be empty.** Then set `awaiting: spec` and ask the user to

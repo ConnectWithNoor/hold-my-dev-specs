@@ -23,6 +23,10 @@ What must be true, in plain words.
 ## Non-functional requirements
 Speed, security, accessibility, limits… each one measurable, with an id (N1, N2…) and how it is checked.
 
+## Baseline it changes
+Only if `specs/baseline/` exists: the baseline criteria this feature changes, as links — never copied.
+- `specs/baseline/<area>.md` BR1.2 → replaced by AC1.1 (or: kept as is, extended by R2)
+
 ## Constraints and standards
 Stack, rules, conventions this work must follow (link to project docs, don't copy them).
 

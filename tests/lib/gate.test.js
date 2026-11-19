@@ -212,7 +212,7 @@ test('reports only in the ACTIVE feature', () => {
 test('spec-miner: specs/baseline/** only', () => {
   const root = makeProject({ active: null });
   assert.equal(write(root, 'specs/baseline/auth.md', H('spec-miner')), undefined);
-  assert.equal(write(root, 'specs/baseline/report.md', H('spec-miner')), undefined);
+  assert.equal(write(root, 'specs/baseline/index.md', H('spec-miner')), undefined);
   assert.ok(denied(write(root, 'specs/001-login/spec.md', H('spec-miner'))));
   assert.ok(denied(write(root, 'src/a.js', H('spec-miner'))));
 });

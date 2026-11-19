@@ -17,8 +17,7 @@ no permission prompt), and write files with Write / Edit, never through shell re
   Unfinished or broken → say which fields, and continue with those only.
 - Look at the repo before asking, so you can propose real values: languages, package files, test folders
   and commands, lint / format / typecheck configs, CI files, main branch name.
-- Existing code but no `specs/baseline/` → say that later the spec-miner can write down what the code
-  already does; it's not part of this setup.
+- Existing code but no `specs/baseline/` → remember it for the offer at the end (section 4).
 
 ## 2. Interview
 Ask in small groups (up to 4 questions at a time), plain words, each with options and a recommendation
@@ -56,5 +55,18 @@ Restate every value in one table and wait for the user's confirmation. Then:
    merge it into the main branch as `git.merge` says (`local`: fast-forward; `pr`: ask the user before
    opening a pull request). Ask the user first if the repo isn't a git repository or has uncommitted work.
 4. Check: the next message's workflow-state note must not say "settings are unfinished / broken".
+
+## 4. Offer the spec-miner (only for existing code)
+Only if the repo already has code and there is no `specs/baseline/` yet, offer it in a few plain lines,
+as an offer the user may decline:
+- **What it does:** a helper (`spec-miner`) reads the existing code and writes down what it does today,
+  as baseline specs in `specs/baseline/<area>.md`, with evidence and uncertain points marked. New specs
+  then link to those baseline criteria instead of guessing what the code does.
+- **What it costs:** one helper run per area, on the `strongest` tier; propose the areas (main folders
+  or modules) so the user can pick some, all, or none.
+- **No** → nothing happens; it can be done later.
+- **Yes** → per chosen area, start `spec-miner` with the area and a short file name; afterwards show
+  the user `specs/baseline/index.md` and the uncertain points, and commit the baseline files the same
+  way as in step 3 (own branch, then merge).
 
 End with the report: done · how it was checked · what's left · next step (usually the `feature` skill).
