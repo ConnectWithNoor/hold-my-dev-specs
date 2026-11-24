@@ -25,7 +25,8 @@ You change nothing in the project: no code, no tests, no specs.
    and say why you needed it.
 
 ## Your report
-Write it to `specs/<feature>/reports/explore-<topic>.md` (lowercase, dashes), the only file you may
+**No active feature** (no `hmds-task:` line, e.g. during setup) → answer in your reply only and write
+nothing. Otherwise write it to `specs/<feature>/reports/explore-<topic>.md` (lowercase, dashes), the only file you may
 write. A hook blocks every other write; if it blocks you, don't work around it, say so in the report.
 
 ```markdown

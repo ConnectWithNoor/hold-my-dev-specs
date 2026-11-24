@@ -14,12 +14,8 @@ While it is unfinished or broken, only the master may repair it (or anything els
 | `disabledHooks` | Single hooks switched off: `plan-gate` · `verifier-integrity` · `safety` · `context-manifest` · `workflow-state` · `stop-checks` | `[]` |
 | `models.strongest` | Model for verifier, test author, spec-miner | asked, no suggestion |
 | `models.mid` | Model for implementer, explorer, shipper | asked, no suggestion |
-
-When the master starts one of these helpers without naming a model, a hook fills in the tier's model
-(in every profile), so a helper never silently runs on the session's, often more expensive, model.
-A different model the master names on purpose is kept, and the brief notes it.
-| `paths.open` | Paths editable before both approvals (everything else is gated) | `["specs/**", "docs/**", "CLAUDE.md"]` (project rules and lessons are documentation, so setup and retro can always write them) |
-| `paths.protected` | Paths implementers may never touch: quality configs (lint / format / typecheck + their ignore files), CI, guardrails. `specs/**` and the test paths below are always protected too, without being listed (write rights: [artifacts.md](artifacts.md)) | proposed from the repo |
+| `paths.open` | Paths editable before both approvals (everything else is gated) | `["specs/**", "docs/**", "CLAUDE.md"]` (project rules and lessons are documentation, so setup and retro can always write them; helpers never write `CLAUDE.md`) |
+| `paths.protected` | Paths implementers may never touch: quality configs (lint / format / typecheck + their ignore files), CI, guardrails. `specs/**` and the test paths below are always protected too, without being listed, and `.claude/**`, `.mcp.json`, every `CLAUDE.md` and `.git/**` are always guarded from helpers and other agents (write rights: [artifacts.md](artifacts.md)) | proposed from the repo |
 | `paths.tests` | Where tests live. Only the test author writes here | detected from the repo, confirmed |
 | `commands.test` / `lint` / `format` / `typecheck` | Commands the verifier runs; in `strict`, format / lint / typecheck also run after each reply (see "Stop checks"). `{files}` in a command is replaced by the changed **source** files. Write format commands with `{files}` (e.g. `prettier --write {files}`), not for the whole project: a whole-project formatter could change locked specs or protected files. `null` = none | detected from the repo, confirmed; setup suggests the `{files}` form |
 | `verification.signals` | What the verifier can use: `browser` · `screenshot` · `logs` · `code-only` | asked |
@@ -33,6 +29,10 @@ A different model the master names on purpose is kept, and the brief notes it.
 | `ship.manualReview` | Where the user checks the result: `local` · `staging` | asked |
 | `ship.deploy` / `ship.monitor` | How to ship and what to watch afterwards; `null` = not used | asked |
 | `git.mainBranch` / `git.merge` | Main branch name; merge method `local` · `pr` | detected / asked |
+
+When the master starts one of these helpers without naming a model, a hook fills in the tier's model
+(in every profile), so a helper never silently runs on the session's, often more expensive, model.
+A different model the master names on purpose is kept, and the brief notes it.
 
 ## Required fields and unfinished setup
 - **May stay `null` by design** (= "not used"): `commands.*`, `ship.deploy`, `ship.monitor`,
@@ -69,8 +69,10 @@ settings file:
   deleting files, `sudo`, `chmod 777`, system and package installs, changing Claude configuration,
   committing directly on main/master.
 - Secret **reads** (Read / Grep) are checked in the read hook, which never blocks because of its own
-  error: a broken script must not stop every read in every session. For a hard line that needs no
-  script, use Claude Code's own deny rules (README, "What the protections can and can't do").
+  error: a broken script must not stop every read in every session. Grep is also denied when its `glob`
+  names secret files (e.g. `.env*`), but a Grep over a whole folder can still reach them. For a hard
+  line that needs no script, use Claude Code's own deny rules (README, "What the protections can and
+  can't do").
 - **Turn it off on a machine** that has its own safety hooks: set `HOLD_MY_DEV_SPECS_SAFETY=off` in the
   `env` section of `~/.claude/settings.json`. In a project: profile `minimal`, or `"safety"` in
   `disabledHooks`. Broken or unfinished settings keep it on.

@@ -24,7 +24,8 @@ intent → spec ──approve spec──→ plan ──approve plan──→ tas
 - **Real timestamps, one clock read per event.** Every log line gets its time from the clock
   (`date -u +%Y-%m-%dT%H:%M:%SZ`); never estimate or round a time. When the event has a git command
   anyway (e.g. the task commit), add the clock to it: `git commit … && date -u +%Y-%m-%dT%H:%M:%SZ`;
-  otherwise run `date -u +%Y-%m-%dT%H:%M:%SZ` on its own. Both run without a permission prompt.
+  otherwise run `date -u +%Y-%m-%dT%H:%M:%SZ` on its own. `date` needs no permission prompt; a `git commit`
+  may ask once unless the user allows it.
 - **A refused command → no variants.** If a command is refused, don't retry it in another spelling
   (`node --test` for `npm test`, a `cd` in front, a different flag): tell the user what was refused and
   why it is needed. The same rule is in every helper's instructions.

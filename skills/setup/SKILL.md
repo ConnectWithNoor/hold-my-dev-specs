@@ -26,15 +26,17 @@ where the guide suggests one:
 1. **Models:** which model for the `strongest` tier (verifier, test author, spec-miner) and for `mid`
    (implementer, explorer, shipper). No suggestion of your own. Offer the short model names your Agent
    tool accepts for its `model` setting (the aliases listed in that tool's description). If the user
-   wants another name, test it once before writing it: start a tiny explorer with that model and a
-   one-line question, and check that it ran. If both tiers are the same, warn once: the critic should
-   differ from the builder.
+   wants another name, test it once before writing it: start a tiny explorer with that model, a
+   one-line question and the brief "answer only, write nothing", and check that it ran. If both tiers
+   are the same, warn once: the critic should differ from the builder.
 2. **Profile:** show the profiles table from the guide; suggest `standard`.
 3. **Paths:** `open` (suggest `specs/**`, `docs/**`, `CLAUDE.md`), `tests` (from the repo), `protected`
    (quality configs + their ignore files, CI, guardrails such as `.claude/**`; specs and tests are
    protected anyway).
 4. **Commands:** test, lint, format, typecheck, as found in the repo; confirm each or set `null`.
-   Suggest the `{files}` form for format commands (e.g. `prettier --write {files}`).
+   Suggest the `{files}` form for format commands (e.g. `prettier --write {files}`). A format command
+   without `{files}` reformats the whole project, locked specs and protected files included, and in
+   `strict` it runs by itself after replies: **warn clearly** and recommend the `{files}` form.
 5. **Verification:** signals (browser, screenshot, logs, code-only), validation tools to use
    (e.g. a browser plugin for a web app — installing anything is the user's call), pass threshold
    (suggest 7), lenses (`silent-failure`, `security`), high-risk paths.
