@@ -173,9 +173,13 @@ function checkTarget(rel, via, kind, input, root, cfg, caller, active, env) {
       ? { ask: 'hold-my-dev-specs: this changes the project settings that control the plugin\'s protections. Allow only if you asked for this change.' }
       : { deny: `Only the master may change ${CONFIG_REL}, and only with the user's permission.` };
   }
-  // Setup writes allow rules there (also when re-run): the master goes to Claude Code's normal permission flow.
+  // Setup writes allow rules there (also when re-run). Claude Code always asks for .claude/ files; for
+  // .mcp.json it may not, so the hook asks the user itself.
   if (PERMISSION_FILES.includes(rel)) {
-    return caller.kind === 'master' ? null : { deny: `Only the master may change ${rel}, and only with the user's permission.` };
+    if (caller.kind !== 'master') return { deny: `Only the master may change ${rel}, and only with the user's permission.` };
+    return rel === '.mcp.json'
+      ? { ask: 'hold-my-dev-specs: this changes .mcp.json, the tool servers Claude may use. Allow only if you asked for this change.' }
+      : null;
   }
   if (cfg.status !== 'ok') {
     if (caller.kind !== 'master') return { deny: `Project settings are ${cfg.status}; only the master may repair them.` };

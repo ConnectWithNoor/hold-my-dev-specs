@@ -103,10 +103,18 @@ test('S11: helpers and other agents may never change the permission files, even 
 
 test('S11 review: .mcp.json (tool servers) — only the master; helpers and other agents denied by Write and shell', () => {
   const root = makeProject({ ledger: ledgerText(APPROVED) });
-  assert.equal(write(makeProject({ active: null }), '.mcp.json', undefined, '{}'), undefined);
   for (const who of [H('implementer'), H('test-author'), H('verifier'), H('explorer'), 'general-purpose']) {
     assert.match(reason(write(root, '.mcp.json', who, '{"mcpServers":{}}')), /Only the master may change \.mcp\.json/, who);
     assert.ok(denied(bash(root, 'echo {} > .mcp.json', who)), `${who} via shell`);
+  }
+});
+
+test('S12: the master changing .mcp.json is asked through the hook (Write, Edit and shell), before and after approval', () => {
+  for (const root of [makeProject({ active: null }), makeProject({ ledger: ledgerText(APPROVED) })]) {
+    assert.ok(asked(write(root, '.mcp.json', undefined, '{}')));
+    assert.match(reason(write(root, '.mcp.json')), /tool servers Claude may use/);
+    assert.ok(asked(decide(root, 'Edit', { file_path: path.join(root, '.mcp.json'), old_string: '{}', new_string: '{"mcpServers":{}}' })));
+    assert.ok(asked(bash(root, 'echo {} > .mcp.json')));
   }
 });
 
