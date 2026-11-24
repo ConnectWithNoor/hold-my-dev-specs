@@ -20,9 +20,23 @@ function writeAtomic(file, text) {
   fs.renameSync(tmp, file);
 }
 
+// A short message that starts with "approve" but isn't an exact phrase ("approve spec.", "Approve the
+// plan") records nothing; the user gets a hint with the exact phrase instead of silence.
+function nearMiss(text, input, env) {
+  if (!text.startsWith('approve') || text.length >= 30) return undefined;
+  const root = projectRoot(input, env);
+  const cfg = loadConfig(root);
+  if (cfg.status !== 'ok' || !isHookEnabled('approval-recorder', cfg.config, env)) return undefined;
+  const ledger = loadActiveLedger(root);
+  const awaiting = ledger.status === 'ok' && ledger.header.awaiting !== 'none' ? ledger.header.awaiting : null;
+  const exact = awaiting ? `"approve ${awaiting}"` : '"approve spec", "approve plan" or "approve both"';
+  return notice(`ℹ hold-my-dev-specs: not recorded — an approval must be exactly ${exact}, nothing else in the message.`);
+}
+
 function handlePrompt(input, env, now = new Date()) {
-  const phrase = typeof input.prompt === 'string' ? PHRASES[input.prompt.trim().toLowerCase()] : undefined;
-  if (!phrase) return undefined;
+  const said = typeof input.prompt === 'string' ? input.prompt.trim().toLowerCase() : '';
+  const phrase = PHRASES[said];
+  if (!phrase) return nearMiss(said, input, env);
   const root = projectRoot(input, env);
   const cfg = loadConfig(root);
   if (cfg.status === 'absent') return undefined;

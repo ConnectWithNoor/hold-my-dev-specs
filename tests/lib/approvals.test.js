@@ -34,13 +34,27 @@ test('trimmed and case-insensitive', () => {
   assert.equal(headerOf(root).spec_approved, '2026-11-18T19:20:00Z');
 });
 
-test('phrase with extra text → ignored entirely', () => {
+test('phrase with extra text → records nothing (a short near miss only gets a hint)', () => {
   const root = makeProject({ ledger: ledgerText({ awaiting: 'plan', spec_approved: T0 }) });
   const before = ledgerOf(root);
-  assert.equal(say(root, 'approve plan, but change X'), undefined);
+  assert.match(say(root, 'approve plan, but change X').systemMessage, /not recorded/);
   assert.equal(say(root, 'please approve plan'), undefined);
-  assert.equal(say(root, 'approve  plan'), undefined);
+  assert.match(say(root, 'approve  plan').systemMessage, /not recorded/);
   assert.equal(ledgerOf(root), before);
+});
+
+test('S12 R24: a near-miss approval names the exact phrase; long messages and other projects stay silent', () => {
+  const waiting = makeProject({ ledger: ledgerText({ awaiting: 'spec' }) });
+  const before = ledgerOf(waiting);
+  for (const msg of ['approve spec.', 'Approve the spec', 'approved']) {
+    assert.equal(say(waiting, msg).systemMessage, 'ℹ hold-my-dev-specs: not recorded — an approval must be exactly "approve spec", nothing else in the message.', msg);
+  }
+  assert.equal(ledgerOf(waiting), before);
+  assert.equal(headerOf(waiting).spec_approved, 'no');
+  const idle = makeProject({ ledger: ledgerText({ awaiting: 'none' }) });
+  assert.match(say(idle, 'approve it').systemMessage, /exactly "approve spec", "approve plan" or "approve both"/);
+  assert.equal(say(waiting, 'approve this spec after you fix the typo in AC1.2'), undefined, '30 characters or more: an ordinary message');
+  assert.equal(say(makeProject({ config: null }), 'approve spec.'), undefined, 'no plugin settings: silent');
 });
 
 test('phrase while not awaiting → not recorded, says why', () => {
