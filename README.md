@@ -9,7 +9,11 @@ only after your approval does it build the work in small, checked steps.
 ## Requirements
 - **Claude Code 2.1.295 or newer.** Older versions can't make a crashing safety check block the
   action, so the plugin's protections wouldn't be reliable.
-- **Node.js 22 or newer.** Node.js runs the plugin's small check scripts (hooks).
+- **Node.js 22 or newer.** Node.js runs the plugin's small check scripts (hooks). Check it the way the
+  hooks see it: `sh -c 'node --version'` (Node loaded only in interactive shells, e.g. by a version
+  manager, doesn't count). Without Node, projects that use the plugin block every edit, shell command
+  and helper start, on purpose: the checks can't run. Other projects are not affected. To recover,
+  install Node, or turn the plugin off with `/plugin`.
 - Tested on **Linux only** so far.
 
 ## Permission prompts to expect

@@ -133,3 +133,39 @@ test('prompt-submit: crash while writing the ledger → message passes, nothing 
       fs.chmodSync(dir, 0o755);
     }
   });
+
+// ── S12 A6: the sh wrapper keeps projects without settings working when Node is missing ──
+function runWrapper(stdin, root, pathEnv) {
+  const env = { ...process.env, CLAUDE_PROJECT_DIR: root };
+  if (pathEnv !== undefined) env.PATH = pathEnv;
+  const r = spawnSync('/bin/sh', [path.join(SCRIPTS, 'pre-tool.sh')], { input: stdin, env, encoding: 'utf8' });
+  return { code: r.status, stdout: r.stdout };
+}
+
+test('S12 A6: hooks.json starts the blocking entry through the sh wrapper, still with onFailure block', () => {
+  const cfg = JSON.parse(fs.readFileSync(path.join(__dirname, '../../hooks/hooks.json'), 'utf8'));
+  const entry = cfg.hooks.PreToolUse[0].hooks[0];
+  assert.match(entry.command, /^sh "\$\{CLAUDE_PLUGIN_ROOT\}\/hooks\/scripts\/pre-tool\.sh"$/);
+  assert.equal(entry.onFailure, 'block');
+});
+
+test('S12 A6: without Node, a project without settings is left alone and a project with settings is blocked', () => {
+  const noNode = fs.mkdtempSync(path.join(require('os').tmpdir(), 'no-node-'));
+  const input = (root) => JSON.stringify({ hook_event_name: 'PreToolUse', cwd: root, tool_name: 'Write', tool_input: { file_path: path.join(root, 'src/a.js'), content: 'x' } });
+  const plain = makeProject({ config: null });
+  const off = runWrapper(input(plain), plain, noNode);
+  assert.equal(off.code, 0);
+  assert.equal(off.stdout, '');
+  const used = makeProject();
+  assert.notEqual(runWrapper(input(used), used, noNode).code, 0, 'no Node in a plugin project → the hook fails → blocked');
+});
+
+test('S12 A6: with Node, the wrapper decides exactly like the Node script', () => {
+  const root = makeProject();
+  const input = JSON.stringify({ hook_event_name: 'PreToolUse', cwd: root, tool_name: 'Write', tool_input: { file_path: path.join(root, 'src/a.js'), content: 'x' } });
+  const viaWrapper = runWrapper(input, root, `${path.dirname(process.execPath)}:/usr/bin:/bin`);
+  const direct = runScript('pre-tool.js', input, root);
+  assert.equal(viaWrapper.code, direct.code);
+  assert.equal(viaWrapper.stdout, direct.stdout);
+  assert.match(viaWrapper.stdout, /Plan gate is closed/);
+});
