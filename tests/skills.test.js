@@ -259,3 +259,13 @@ test('S11 (f): the retro runs no tests and commits what it wrote, or says clearl
   assert.match(body, /say\s+clearly which files are \*\*uncommitted\*\*/);
   assert.match(body, /committed \(branch\) or uncommitted \(which files\)/);
 });
+
+test('S12 A4: test author fingerprints its test files; the verifier recomputes them and fails on a mismatch', () => {
+  const author = read('agents', 'test-author.md');
+  assert.match(author, /with its SHA-256 fingerprint in your report \("Test files"\)/);
+  assert.match(author, /## Test files\n`sha256sum <every test file you wrote or changed>`/);
+  const verifier = read('agents', 'verifier.md');
+  assert.match(verifier, /recompute them with one command \(`sha256sum <files>`\)/);
+  assert.match(verifier, /if a listed test file's fingerprint differs, or if any\s+other test, spec, rubric/);
+  assert.match(read('guides', 'lifecycle.md'), /lists each test file it wrote with a SHA-256 fingerprint, which the\s+verifier checks/);
+});

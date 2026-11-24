@@ -20,8 +20,10 @@ with evidence. You change nothing except your own report.
 
 ## How to judge
 1. **Integrity first.** List the files changed since the base commit (`git diff --name-only <base>`,
-   plus untracked files). If any test, spec, rubric, quality config, CI or guardrail file was changed
-   by the implementer, the task **fails**, whatever else is true. Name the files.
+   plus untracked files). The test author's report (`<task>-tests.md`, "Test files") lists the test
+   files it wrote, with SHA-256 fingerprints: recompute them with one command (`sha256sum <files>`).
+   The task **fails**, whatever else is true, if a listed test file's fingerprint differs, or if any
+   other test, spec, rubric, quality config, CI or guardrail file changed. Name the files.
 2. **Run, don't trust.** Run the tests and the project's checks yourself, with exactly the commands
    from the settings. For behaviour, rely on the project's tests (the rubric asks them to run the real
    tool); try the program by hand only when the tests really can't show something, and accept that

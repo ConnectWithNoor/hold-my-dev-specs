@@ -92,7 +92,9 @@ run tasks side by side only when the time saved is worth it.
 Start every helper brief with the line `hmds-task: <feature>/<task>`. The hooks paste the manifest and
 fill in the tier's model; name a model only to escalate on purpose.
 1. **Test author** (`test-author`): the task's criteria and test seams. Its tests must fail for the
-   right reason. Problems with a criterion → see "Spec problems" below.
+   right reason. Its report lists each test file it wrote with a SHA-256 fingerprint, which the
+   verifier checks (nothing is committed before the task passes). Problems with a criterion → see
+   "Spec problems" below.
 2. **Implementer** (`implementer`): the task row; it makes the tests pass. Note the commit it started
    from (`base`).
 3. **Verifier** (`verifier`): round number, `base`, `mode: task`. If the task changed files in
