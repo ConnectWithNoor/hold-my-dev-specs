@@ -1,5 +1,4 @@
-# Private design records: they hold local paths and stay out of git history.
-# Converted into public ADRs at S12, then deleted.
+# Private working notes (they hold local paths). Decisions are public in docs/adr/.
 docs/phase-b-*.md
 
 # Eval run output (reports, per-run traces)
