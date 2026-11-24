@@ -16,6 +16,8 @@ const { deny, ask } = require('./output');
 const FILE_TOOLS = { Write: 'file_path', Edit: 'file_path', MultiEdit: 'file_path', NotebookEdit: 'notebook_path' };
 const LEDGER = /^specs\/([^/]+)\/ledger\.md$/;
 const LOCKABLE = /^specs\/([^/]+)\/(spec|rubric|plan)\.md$/;
+// Claude Code's own permission files: an allow rule there lets a command run without asking.
+const PERMISSION_FILES = ['.claude/settings.json', '.claude/settings.local.json'];
 
 // Own report names per helper, inside the active feature's reports/ folder.
 const REPORTS = {
@@ -169,6 +171,10 @@ function checkTarget(rel, via, kind, input, root, cfg, caller, active, env) {
     return caller.kind === 'master'
       ? { ask: 'hold-my-dev-specs: this changes the project settings that control the plugin\'s protections. Allow only if you asked for this change.' }
       : { deny: `Only the master may change ${CONFIG_REL}, and only with the user's permission.` };
+  }
+  // Setup writes allow rules there (also when re-run); Claude Code's own prompt for .claude/ is the check.
+  if (PERMISSION_FILES.includes(rel)) {
+    return caller.kind === 'master' ? null : { deny: `Only the master may change ${rel}, and only with the user's permission.` };
   }
   if (cfg.status !== 'ok') {
     if (caller.kind !== 'master') return { deny: `Project settings are ${cfg.status}; only the master may repair them.` };

@@ -84,6 +84,23 @@ test('broken settings → same: only repair paths editable', () => {
   assert.ok(asked(write(root, '.claude/hold-my-dev-specs.json', undefined, '{}')));
 });
 
+test('S11: Claude Code permission files — master passes to its own prompt, even without an active feature', () => {
+  for (const rel of ['.claude/settings.json', '.claude/settings.local.json']) {
+    assert.equal(write(makeProject({ active: null }), rel, undefined, '{}'), undefined, rel);
+    assert.equal(write(makeProject({ config: validConfig({ models: { strongest: null, mid: 'sonnet' } }) }), rel, undefined, '{}'), undefined, `${rel} unfinished settings`);
+  }
+});
+
+test('S11: helpers and other agents may never change the permission files, even after approval', () => {
+  const root = makeProject({ ledger: ledgerText(APPROVED) });
+  for (const rel of ['.claude/settings.json', '.claude/settings.local.json']) {
+    for (const who of [H('implementer'), H('test-author'), H('verifier'), 'general-purpose']) {
+      assert.match(reason(write(root, rel, who, '{}')), /Only the master may change/, `${who} ${rel}`);
+    }
+    assert.ok(denied(bash(root, `echo {} > ${rel}`, H('implementer'))), `${rel} via shell`);
+  }
+});
+
 // ── Approval values ──────────────────────────────────────────────────────
 const LEDGER = 'specs/001-login/ledger.md';
 const editLedger = (root, from, to, who) =>
