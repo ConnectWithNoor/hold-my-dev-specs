@@ -34,6 +34,16 @@ and code without change ("what does index.js do? no changes").
 
 Cost is the tool's list-price estimate (`costUsd`), with the user's default model.
 
+## Release check (2026-11-24, Claude Code 2.1.325)
+Before publishing, the suite runs three times and must score 18/18 each time (ADR-0015):
+
+| Run | Result | Cost | Time |
+|---|---|---|---|
+| 1 | 18/18 | $1.66 | 175 s |
+| 2 | 18/18 | $1.59 | 168 s |
+| 3 | 18/18 | $1.62 | 173 s |
+| **total** | **54/54** | **$4.87** | |
+
 ## Found while building
 - Grader entries need a `name`.
 - A `scaffold_script` must be inside the case folder (`..` is refused); a symlink to a shared fixture works.
