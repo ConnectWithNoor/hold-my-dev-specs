@@ -282,7 +282,8 @@ test('S12 A5: the done record is committed on a branch before or after shipping,
 test('S12 group B: the README names exactly the approval phrases the hook accepts, and how to install', () => {
   const readme = read('README.md');
   for (const phrase of Object.keys(PHRASES)) assert.ok(readme.includes(`| \`${phrase}\` |`), phrase);
-  assert.match(readme, /\/plugin install hold-my-dev-specs@hold-my-dev-specs/);
+  assert.match(readme, /\/plugin marketplace add ConnectWithNoor\/hold-my-dev-specs\n\/plugin install hold-my-dev-specs@connectwithnoor/);
+  assert.equal(JSON.parse(read('.claude-plugin', 'marketplace.json')).name, 'connectwithnoor');
   assert.doesNotMatch(readme, /Not ready to use yet/);
   assert.match(readme, /`strict` \| \+ format \/ lint \/ typecheck \*\*run automatically\*\*/);
 });

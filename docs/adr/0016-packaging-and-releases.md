@@ -7,7 +7,8 @@ The framework should be reusable by anyone, not tied to one machine or one perso
 
 ## Decision
 - A **Claude Code plugin** with a **marketplace catalog in the same repository**, so one repository is
-  both the plugin and its install source.
+  both the plugin and its install source. The marketplace is named after its owner, `connectwithnoor`,
+  so users install `hold-my-dev-specs@connectwithnoor` and later plugins can join the same catalog.
 - The plugin holds **only the spec-driven workflow**: three entry skills, six helpers, the hooks, guides
   and templates. Personal configuration stays out. Version 1 covers the lifecycle, spec-miner, retro
   with break-loop analysis, and the safety copy. Per-developer journals for shared repositories may

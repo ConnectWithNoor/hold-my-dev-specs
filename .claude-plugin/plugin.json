@@ -4,6 +4,8 @@
   "description": "Spec-driven development for software projects: your intent becomes a spec and plan you approve, then verified helper agents build it in small, checked steps.",
   "author": { "name": "Noor Muhammad" },
   "license": "MIT",
+  "repository": "https://github.com/ConnectWithNoor/hold-my-dev-specs",
+  "homepage": "https://github.com/ConnectWithNoor/hold-my-dev-specs",
   "keywords": ["spec-driven-development", "sdd", "agents", "verification", "workflow"],
   "engines": { "claude-code": ">=2.1.295" }
 }

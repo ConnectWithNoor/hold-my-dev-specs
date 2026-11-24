@@ -4,15 +4,15 @@ A Claude Code plugin for **spec-driven development**: you explain what you want,
 spec (a short description of what to build and how to check it) and a plan for you to review, and
 only after your approval does it build the work in small, checked steps.
 
-**Status:** version 0.1.0, complete and tested on Linux, before its first release. It isn't published
-yet: install it from a local copy (below).
+**Status:** version 0.1.0, the first public release. Tested on Linux.
 
 ## Install
-In Claude Code, from a local copy of this repository (it is its own marketplace):
+In Claude Code (this repository is its own plugin marketplace, named `connectwithnoor`):
 ```
-/plugin marketplace add /path/to/hold-my-dev-specs
-/plugin install hold-my-dev-specs@hold-my-dev-specs
+/plugin marketplace add ConnectWithNoor/hold-my-dev-specs
+/plugin install hold-my-dev-specs@connectwithnoor
 ```
+From a local copy instead: `/plugin marketplace add /path/to/hold-my-dev-specs`, then the same install line.
 The plugin does nothing in a project until you set it up there.
 
 ## Quick start
