@@ -19,6 +19,9 @@ const LOCKABLE = /^specs\/([^/]+)\/(spec|rubric|plan)\.md$/;
 // Files that change what Claude Code may do: allow rules let a command run without asking, and
 // .mcp.json adds tool servers.
 const PERMISSION_FILES = ['.claude/settings.json', '.claude/settings.local.json', '.mcp.json'];
+// Never written by helpers or other agents, in any profile and whatever paths.protected says: Claude Code
+// configuration, instructions every later session reads, and git's own folder (its hooks run on commit).
+const GUARDED = ['.claude/**', '.mcp.json', '**/CLAUDE.md', '.git/**'];
 
 // Own report names per helper, inside the active feature's reports/ folder.
 const REPORTS = {
@@ -175,6 +178,9 @@ function checkTarget(rel, via, kind, input, root, cfg, caller, active, env) {
   }
   // Setup writes allow rules there (also when re-run). Claude Code always asks for .claude/ files; for
   // .mcp.json it may not, so the hook asks the user itself.
+  if (caller.kind !== 'master' && !PERMISSION_FILES.includes(rel) && matchesAny(rel, GUARDED)) {
+    return { deny: `Only the master may change ${rel}: Claude Code configuration, CLAUDE.md and .git/ are guarded for every helper and agent.` };
+  }
   if (PERMISSION_FILES.includes(rel)) {
     if (caller.kind !== 'master') return { deny: `Only the master may change ${rel}, and only with the user's permission.` };
     return rel === '.mcp.json'

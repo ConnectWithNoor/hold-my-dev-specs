@@ -118,6 +118,21 @@ test('S12: the master changing .mcp.json is asked through the hook (Write, Edit 
   }
 });
 
+test('S12 A1: .claude/, .mcp.json, CLAUDE.md and .git/ are guarded for helpers and other agents in every profile', () => {
+  for (const profile of ['minimal', 'standard', 'strict']) {
+    const root = makeProject({ config: validConfig({ profile, paths: { open: ['specs/**', 'docs/**', 'CLAUDE.md'], protected: [], tests: ['tests/**'] } }), ledger: ledgerText(APPROVED) });
+    for (const who of [H('implementer'), H('test-author'), H('verifier'), 'general-purpose']) {
+      for (const rel of ['CLAUDE.md', 'src/CLAUDE.md', '.git/hooks/pre-commit', '.git/config', '.claude/agents/x.md']) {
+        assert.ok(denied(write(root, rel, who)), `${profile} ${who} ${rel}`);
+      }
+      for (const cmd of ['mv .claude .claude-old', 'rm -rf .claude', 'echo x > .git/hooks/pre-commit', 'cd .git && echo x > config']) {
+        assert.ok(denied(bash(root, cmd, who)), `${profile} ${who} ${cmd}`);
+      }
+    }
+    assert.equal(write(root, 'CLAUDE.md'), undefined, `${profile}: the master keeps its rights`);
+  }
+});
+
 // ── Approval values ──────────────────────────────────────────────────────
 const LEDGER = 'specs/001-login/ledger.md';
 const editLedger = (root, from, to, who) =>
