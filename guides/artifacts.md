@@ -56,8 +56,14 @@ unfinished or broken, helpers may write nothing at all.
 A helper may write only its **own** report file name (the pattern above, inside the **active** feature's
 `reports/`); any other file inside `reports/` is denied. Creating the active `reports/` folder itself
 (`mkdir -p`) is fine for every helper; deleting it is not. Shell commands that write files are checked on a
-best-effort basis only; the verifier's diff check catches what slips through. The ledger can't be written
-through the shell at all (use Edit / Write, so the approval values can be checked).
+best-effort basis only; the verifier's diff check catches what slips through. A folder that a command
+deletes, moves, restores or copies counts with every file below it (a folder too big to check, or a
+pattern such as `'*.js'`, is denied for helpers). The ledger can't be written through the shell at all,
+also not by copying or moving its folder (use Edit / Write, so the approval values can be checked).
+**Always guarded** for helpers and other agents, in every profile: `.claude/**`, `.mcp.json`, every
+`CLAUDE.md` and `.git/**`. Only the master commits and changes branches: helpers may not run
+`git stash`, `git reset --hard`, `git merge`, `git cherry-pick`, `git revert`, `git switch`, or a
+`git checkout` of another branch.
 
 ## Two lanes
 - **Full lane:** spec.md + rubric.md → `approve spec` → plan.md → `approve plan` → tasks.md → build.

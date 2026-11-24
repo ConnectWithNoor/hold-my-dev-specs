@@ -110,7 +110,8 @@ function tokenize(cmd) {
 
 const WRAPPERS = ['sudo', 'doas', 'env', 'nohup', 'time', 'command', 'exec', 'nice', 'stdbuf', 'timeout'];
 const SHELLS = ['sh', 'bash', 'zsh', 'dash', 'ksh'];
-const ALL_ARGS = ['rm', 'rmdir', 'unlink', 'touch', 'mkdir', 'shred', 'tee'];
+const DELETES = ['rm', 'rmdir', 'unlink', 'shred'];
+const ALL_ARGS = ['touch', 'tee', 'sponge'];
 const LAST_ARG = ['cp', 'mv', 'install', 'ln', 'rsync'];
 
 const base = (w) => w.split('/').pop();
@@ -147,8 +148,51 @@ function optionValues(args, names) {
   return out;
 }
 
-// Words of one simple command → files it writes.
-function commandTargets(words, depth) {
+// Targets are paths, or objects with flags the gate resolves against the disk (this file only reads text):
+//   walk: true      a delete, move source or restore: an existing folder means every file below it
+//   into: [sources] a copy / move / link destination: an existing folder receives <dest>/<source name>
+//   ifExists: true  counts only if the path exists (git checkout: a branch name is not a file)
+//   pattern: true   a pathspec pattern: which files it names can't be known
+const walked = (p) => ({ path: p, kind: 'write', walk: true });
+const isPattern = (w) => /[*?[]/.test(w);
+
+// The paths after "git checkout": "--" makes the rest paths; before it, "." and existing paths count
+// (same rule as the safety copy), patterns are unknown, and -b / -B / --orphan take a branch name.
+function checkoutTargets(rest) {
+  const out = [];
+  let afterDash = false;
+  for (let k = 0; k < rest.length; k++) {
+    const a = rest[k];
+    if (afterDash) { out.push(isPattern(a) ? { path: a, kind: 'write', pattern: true } : walked(a)); continue; }
+    if (a === '--') { afterDash = true; continue; }
+    if (['-b', '-B', '--orphan'].includes(a)) { k++; continue; }
+    if (isOption(a)) continue;
+    if (a === '.') out.push(walked(a));
+    else if (isPattern(a)) out.push({ path: a, kind: 'write', pattern: true });
+    else out.push({ ...walked(a), ifExists: true });
+  }
+  return out;
+}
+
+// A copy / move / link: sources and destination (-t, --target-directory=, or the last word).
+function copyParts(args) {
+  const plain = [];
+  let dest = null;
+  for (let k = 0; k < args.length; k++) {
+    const a = args[k];
+    if (a === '-t' && args[k + 1] !== undefined) { dest = args[++k]; continue; }
+    if (a.startsWith('--target-directory=')) { dest = a.slice('--target-directory='.length); continue; }
+    if (!isOption(a)) plain.push(a);
+  }
+  if (dest === null) {
+    if (plain.length < 2) return null;
+    dest = plain.pop();
+  }
+  return { sources: plain, dest };
+}
+
+// Words of one simple command → files it writes. onGit(sub, rest, gitDir) hears every git call.
+function commandTargets(words, depth, onGit) {
   let i = 0;
   // Skip variable assignments and wrapper commands (with their options).
   for (;;) {
@@ -169,9 +213,10 @@ function commandTargets(words, depth) {
 
   if (SHELLS.includes(name)) {
     const c = args.indexOf('-c');
-    return c !== -1 && args[c + 1] !== undefined && depth < 3 ? bashWrites(args[c + 1], depth + 1) : [];
+    return c !== -1 && args[c + 1] !== undefined && depth < 3 ? bashWrites(args[c + 1], depth + 1, onGit) : [];
   }
   if (name === 'mkdir') return plain.map((p) => ({ path: p, kind: 'mkdir' })); // creates, never changes
+  if (DELETES.includes(name)) return plain.map(walked);
   if (ALL_ARGS.includes(name)) return plain;
   if (name === 'truncate') {
     const out = [];
@@ -181,12 +226,13 @@ function commandTargets(words, depth) {
     }
     return out;
   }
-  // A move, or a sync that removes its sources, changes the sources too (they disappear).
-  if (name === 'mv' || (name === 'rsync' && args.includes('--remove-source-files'))) return plain;
   if (LAST_ARG.includes(name)) {
-    const t = args.indexOf('-t');
-    if (t !== -1 && args[t + 1]) return [args[t + 1]];
-    return plain.length >= 2 ? [plain[plain.length - 1]] : [];
+    const parts = copyParts(args);
+    if (!parts) return [];
+    const dest = { path: parts.dest, kind: 'write', into: parts.sources };
+    // A move, or a sync that removes its sources, changes the sources too (they disappear).
+    const moving = name === 'mv' || (name === 'rsync' && args.includes('--remove-source-files'));
+    return moving ? [...parts.sources.map(walked), dest] : [dest];
   }
   if (name === 'dd') return args.filter((a) => a.startsWith('of=')).map((a) => a.slice(3));
   if (name === 'curl') return optionValues(args, ['-o', '--output']);
@@ -220,13 +266,15 @@ function commandTargets(words, depth) {
     }
     const sub = args[k];
     const rest = args.slice(k + 1);
-    const inDir = (files) => files.map((f) => joinDir(dir, f));
-    if (sub === 'checkout') {
-      const dash = rest.indexOf('--');
-      return dash === -1 ? [] : inDir(rest.slice(dash + 1));
+    if (onGit && sub !== undefined) onGit(sub, rest, dir);
+    const inDir = (targets) => targets.map((w) => ({ ...w, path: joinDir(dir, w.path), ...(w.into ? { into: w.into.map((s) => joinDir(dir, s)) } : {}) }));
+    if (sub === 'checkout') return inDir(checkoutTargets(rest));
+    if (sub === 'restore' || sub === 'rm') return inDir(rest.filter((a) => !isOption(a) && a !== '--').map(walked));
+    if (sub === 'mv') {
+      const parts = copyParts(rest.filter((a) => a !== '--'));
+      return parts ? inDir([...parts.sources.map(walked), { path: parts.dest, kind: 'write', into: parts.sources }]) : [];
     }
-    if (sub === 'restore' || sub === 'mv' || sub === 'rm') return inDir(rest.filter((a) => !isOption(a) && a !== '--'));
-    if (sub === 'apply') return inDir(['.']);
+    if (sub === 'apply') return inDir(['.'].map((p) => ({ path: p, kind: 'write' })));
   }
   if (name === 'sed' || name === 'perl') {
     const inPlace = args.some((a) => a === '--in-place' || a.startsWith('--in-place=') || /^-[a-zA-Z]*i/.test(a));
@@ -242,9 +290,9 @@ function commandTargets(words, depth) {
   return [];
 }
 
-// → [{ path, kind }] where kind is "mkdir" (only creates a folder) or "write" (changes or deletes).
-// A path both created and written counts as "write".
-function bashWrites(command, depth = 0) {
+// → [{ path, kind, …flags }] where kind is "mkdir" (only creates a folder) or "write" (changes or deletes);
+// flags as described above commandTargets. A path both created and written counts as "write".
+function bashWrites(command, depth = 0, onGit = null) {
   if (typeof command !== 'string') throw new Error('Bash command is not a string');
   const tokens = tokenize(command);
   const found = [];
@@ -253,12 +301,17 @@ function bashWrites(command, depth = 0) {
   const dirStack = [];
   const add = (t) => {
     const w = typeof t === 'string' ? { path: t, kind: 'write' } : t;
-    found.push({ ...w, path: joinDir(dir, w.path) });
+    const out = { ...w, path: joinDir(dir, w.path) };
+    if (w.into) out.into = w.into.map((s) => joinDir(dir, s));
+    found.push(out);
   };
   let words = [];
   const flush = () => {
     if (words[0] === 'cd' || words[0] === 'pushd') dir = cdTarget(dir, words.slice(1));
-    else commandTargets(words, depth).forEach(add);
+    else {
+      const here = dir;
+      commandTargets(words, depth, onGit && ((sub, rest, gitDir) => onGit(sub, rest, gitDir ? joinDir(here, gitDir) : here))).forEach(add);
+    }
     words = [];
   };
   for (let k = 0; k < tokens.length; k++) {
@@ -281,13 +334,27 @@ function bashWrites(command, depth = 0) {
   }
   flush();
   const byPath = new Map();
-  for (const { path: p, kind } of found) {
+  for (const w of found) {
+    const p = w.path;
     if (!p || p === '-' || p.startsWith('/dev/')) continue;
-    byPath.set(p, byPath.get(p) === 'write' ? 'write' : kind);
+    const seen = byPath.get(p);
+    if (!seen) { byPath.set(p, { ...w }); continue; }
+    if (w.kind === 'write') seen.kind = 'write';
+    if (w.walk) seen.walk = true;
+    if (w.pattern) seen.pattern = true;
+    if (w.into) seen.into = [...new Set([...(seen.into || []), ...w.into])];
+    if (!w.ifExists) delete seen.ifExists; // named for certain once → counts for certain
   }
-  return [...byPath].map(([p, kind]) => ({ path: p, kind }));
+  return [...byPath.values()];
 }
 
 const bashWriteTargets = (command, depth) => bashWrites(command, depth).map((w) => w.path);
 
-module.exports = { tokenize, bashWrites, bashWriteTargets };
+// Every git call in a command: [{ sub, args, dir }] (dir = folder from "cd" and "git -C", '' = start).
+function gitCalls(command) {
+  const calls = [];
+  bashWrites(command, 0, (sub, args, dir) => calls.push({ sub, args, dir }));
+  return calls;
+}
+
+module.exports = { tokenize, bashWrites, bashWriteTargets, gitCalls };

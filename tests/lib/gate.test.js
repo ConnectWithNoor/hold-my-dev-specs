@@ -133,6 +133,65 @@ test('S12 A1: .claude/, .mcp.json, CLAUDE.md and .git/ are guarded for helpers a
   }
 });
 
+// ── S12 A2: folders count with the files below them ─────────────────────
+const put = (root, rel, text = 'x') => { fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true }); fs.writeFileSync(path.join(root, rel), text); };
+
+test('S12 A2: moving or deleting a folder checks the files below it', () => {
+  const root = makeProject({ ledger: ledgerText(APPROVED) });
+  put(root, 'src/utils/a.test.js'); put(root, 'src/utils/a.js'); put(root, 'src/plain/b.js'); put(root, 'src/c.test.js');
+  const impl = H('implementer');
+  assert.ok(denied(bash(root, 'mv src/utils src/lib', impl)), 'move carries a test file');
+  assert.ok(denied(bash(root, 'git mv src/utils src/lib', impl)), 'git mv too');
+  assert.ok(denied(bash(root, 'rm -r src/utils', impl)), 'delete carries a test file');
+  assert.equal(bash(root, 'mv src/plain src/plain2', impl), undefined, 'no protected file below');
+  assert.equal(bash(root, 'cp src/plain/b.js src/', impl), undefined, 'a copy into a folder writes only <folder>/<name>');
+  assert.ok(denied(bash(root, 'cp src/c.test.js src/plain/', impl)), 'copying a test into a folder writes a test path');
+  assert.ok(denied(bash(root, 'cp -r src/utils src/plain/', impl)), 'a copied folder brings its tests');
+});
+
+test('S12 A2 / R9: copying or moving a feature folder carries its ledger, so it is a shell write to a ledger', () => {
+  const root = makeProject({ ledger: ledgerText(APPROVED) });
+  assert.match(reason(bash(root, 'cp -r specs/001-login specs/002-x')), /can only be changed with Edit or Write/);
+  assert.match(reason(bash(root, 'mv specs/001-login specs/001-old')), /can only be changed with Edit or Write/);
+});
+
+test('S12 A2: a folder too big to check, or a pattern, is denied for helpers and left to the master', () => {
+  const root = makeProject({ ledger: ledgerText(APPROVED) });
+  for (let i = 0; i <= 2000; i++) put(root, `src/big/f${i}.js`);
+  assert.match(reason(bash(root, 'rm -r src/big', H('implementer'))), /can't be checked/);
+  assert.equal(bash(root, 'rm -r src/big'), undefined);
+  assert.match(reason(bash(root, "git checkout HEAD~1 '*.js'", H('implementer'))), /can't be checked/);
+  assert.equal(bash(root, "git checkout HEAD~1 '*.js'"), undefined);
+  put(root, 'node_modules/x/a.test.js');
+  assert.equal(bash(root, 'rm -rf node_modules', H('implementer')), undefined, 'node_modules is listed, not entered');
+});
+
+// ── S12 A3: git commands that replace files ─────────────────────────────
+test('S12 A3: git checkout <rev> <path> names the path, in every profile', () => {
+  for (const profile of ['minimal', 'standard']) {
+    const root = makeProject({ config: validConfig({ profile }), ledger: ledgerText(APPROVED) });
+    put(root, 'tests/a.test.js'); put(root, 'src/a.js');
+    assert.ok(denied(bash(root, 'git checkout HEAD~1 tests/a.test.js', H('implementer'))), profile);
+    assert.ok(denied(bash(root, 'git checkout HEAD~1 specs/001-login/ledger.md')), `${profile}: ledger via the shell, master too`);
+    assert.equal(bash(root, 'git checkout HEAD~1 src/a.js', H('implementer')), undefined, `${profile}: own source file`);
+  }
+});
+
+test('S12 A3: helpers may not stash, reset --hard, merge, cherry-pick, revert or change branches; the master may', () => {
+  const root = makeProject({ ledger: ledgerText(APPROVED) });
+  put(root, 'src/a.js');
+  for (const cmd of ['git stash', 'git stash pop', 'git reset --hard HEAD~1', 'git merge main', 'git cherry-pick abc1234',
+    'git revert abc1234', 'git switch main', 'git checkout main', 'git checkout -b x', 'git checkout -', 'cd src && git stash apply']) {
+    for (const who of [H('implementer'), H('verifier'), 'general-purpose']) {
+      assert.match(reason(bash(root, cmd, who)), /Only the master commits and changes branches/, `${who}: ${cmd}`);
+    }
+    assert.equal(bash(root, cmd), undefined, `master: ${cmd}`);
+  }
+  for (const cmd of ['git status', 'git diff --name-only HEAD', 'git log -1', 'git reset HEAD src/a.js', 'git checkout src/a.js']) {
+    assert.equal(bash(root, cmd, H('implementer')), undefined, cmd);
+  }
+});
+
 // ── Approval values ──────────────────────────────────────────────────────
 const LEDGER = 'specs/001-login/ledger.md';
 const editLedger = (root, from, to, who) =>

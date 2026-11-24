@@ -25,7 +25,7 @@ const cases = [
   ['cp -t target a b', ['target']],
   ['mv old.js new.js', ['old.js', 'new.js']],
   ['mv specs/002/spec.md specs/002/old.md', ['specs/002/spec.md', 'specs/002/old.md']],
-  ['mv -t dest a b', ['dest', 'a', 'b']],
+  ['mv -t dest a b', ['a', 'b', 'dest']],
   ['git mv specs/002/spec.md x.md', ['specs/002/spec.md', 'x.md']],
   ['git rm specs/002/rubric.md', ['specs/002/rubric.md']],
   ['git rm --cached -r build', ['build']],
@@ -62,7 +62,6 @@ const cases = [
   ['patch -p1 < fix.diff', ['.']],
   ['git apply fix.diff', ['.']],
   ['git checkout -- src/a.js src/b.js', ['src/a.js', 'src/b.js']],
-  ['git checkout main', []],
   ['git restore --staged src/a.js', ['src/a.js']],
   ['git status', []],
   ['git -C . rm specs/002/spec.md', ['specs/002/spec.md']],
@@ -113,8 +112,8 @@ test('here-string <<< is not a heredoc', () => {
 // ── Kinds: mkdir only creates (S8 finding 4) ─────────────────────────────
 test('mkdir targets are marked as "mkdir", everything else as "write"', () => {
   assert.deepEqual(bashWrites('mkdir -p specs/f/reports'), [{ path: 'specs/f/reports', kind: 'mkdir' }]);
-  assert.deepEqual(bashWrites('rm -rf specs/f/reports'), [{ path: 'specs/f/reports', kind: 'write' }]);
-  assert.deepEqual(bashWrites('mkdir d && rm -r d'), [{ path: 'd', kind: 'write' }]); // write wins
+  assert.deepEqual(bashWrites('rm -rf specs/f/reports'), [{ path: 'specs/f/reports', kind: 'write', walk: true }]);
+  assert.deepEqual(bashWrites('mkdir d && rm -r d'), [{ path: 'd', kind: 'write', walk: true }]); // write wins
   assert.deepEqual(bashWrites('sh -c "mkdir -p x"'), [{ path: 'x', kind: 'mkdir' }]);
 });
 
@@ -157,4 +156,40 @@ test('known gaps stay undetected (verifier diff check is the backstop)', () => {
 
 test('non-string command throws (wrapper then blocks)', () => {
   assert.throws(() => bashWriteTargets(undefined));
+});
+
+// ── S12 A2/A3: folders, copies, git checkout and git calls ───────────────
+test('S12: deletes, move sources and restores are marked "walk"; copy destinations carry their sources', () => {
+  assert.deepEqual(bashWrites('rm -r src/old'), [{ path: 'src/old', kind: 'write', walk: true }]);
+  assert.deepEqual(bashWrites('mv src/utils src/lib'), [{ path: 'src/utils', kind: 'write', walk: true }, { path: 'src/lib', kind: 'write', into: ['src/utils'] }]);
+  assert.deepEqual(bashWrites('cp -r specs/001-a specs/002-b'), [{ path: 'specs/002-b', kind: 'write', into: ['specs/001-a'] }]);
+  assert.deepEqual(bashWrites('cp --target-directory=tests a.js b.js'), [{ path: 'tests', kind: 'write', into: ['a.js', 'b.js'] }]);
+  assert.deepEqual(bashWrites('cd src && cp a.js lib/'), [{ path: 'src/lib/', kind: 'write', into: ['src/a.js'] }]);
+  assert.deepEqual(bashWrites('git mv src/utils src/lib'), [{ path: 'src/utils', kind: 'write', walk: true }, { path: 'src/lib', kind: 'write', into: ['src/utils'] }]);
+  assert.deepEqual(bashWrites('git rm -r tests/old'), [{ path: 'tests/old', kind: 'write', walk: true }]);
+  assert.deepEqual(bashWriteTargets('echo x | sponge tests/a.js'), ['tests/a.js']);
+});
+
+test('S12: git checkout names its paths: after "--" for certain, before it only if they exist, patterns as unknown', () => {
+  assert.deepEqual(bashWrites('git checkout HEAD~1 tests/a.test.js'), [
+    { path: 'HEAD~1', kind: 'write', walk: true, ifExists: true },
+    { path: 'tests/a.test.js', kind: 'write', walk: true, ifExists: true },
+  ]);
+  assert.deepEqual(bashWrites('git checkout main -- specs/001-a/ledger.md'), [
+    { path: 'main', kind: 'write', walk: true, ifExists: true },
+    { path: 'specs/001-a/ledger.md', kind: 'write', walk: true },
+  ]);
+  assert.deepEqual(bashWrites('git checkout .'), [{ path: '.', kind: 'write', walk: true }]);
+  assert.deepEqual(bashWrites("git checkout '*.md'"), [{ path: '*.md', kind: 'write', pattern: true }]);
+  assert.deepEqual(bashWrites('git checkout -b new-work'), []);
+  assert.deepEqual(bashWrites('git -C sub checkout x.js'), [{ path: 'sub/x.js', kind: 'write', walk: true, ifExists: true }]);
+});
+
+test('S12: gitCalls lists every git call with its folder', () => {
+  const { gitCalls } = require('../../hooks/scripts/lib/bash-writes');
+  assert.deepEqual(gitCalls('git status && cd sub && git -C x stash pop; sh -c "git merge main"'), [
+    { sub: 'status', args: [], dir: '' },
+    { sub: 'stash', args: ['pop'], dir: 'sub/x' },
+    { sub: 'merge', args: ['main'], dir: 'sub' }, // sh -c runs where the cd left it
+  ]);
 });

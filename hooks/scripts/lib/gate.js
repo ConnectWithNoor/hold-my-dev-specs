@@ -10,7 +10,7 @@ const { loadActiveLedger, parseHeader, approvalsChanged, gateOpen, isApproved } 
 const { isHookEnabled } = require('./profile');
 const { whoIsCalling } = require('./agents');
 const { matchesAny, realProjectPath } = require('./paths');
-const { bashWrites } = require('./bash-writes');
+const { bashWrites, gitCalls } = require('./bash-writes');
 const { deny, ask } = require('./output');
 
 const FILE_TOOLS = { Write: 'file_path', Edit: 'file_path', MultiEdit: 'file_path', NotebookEdit: 'notebook_path' };
@@ -43,9 +43,88 @@ function writeTargets(input) {
     return [{ abs: path.resolve(cwd, ti[field]), via: 'tool', kind: 'write' }];
   }
   if (input.tool_name === 'Bash') {
-    return bashWrites(ti.command).map((w) => ({ abs: path.resolve(cwd, w.path), via: 'bash', kind: w.kind }));
+    return resolveOnDisk(bashWrites(ti.command), cwd).map((w) => ({ ...w, via: 'bash' }));
   }
   return [];
+}
+
+// Bounds for looking below a folder; past them nobody can tell what a command changes.
+const WALK = { maxDepth: 12, maxFiles: 2000, skip: ['node_modules', '.git'] };
+
+// Files below an absolute folder (bounded). Folders in WALK.skip are listed, not entered.
+// → { files: [abs], overflow: boolean }
+function filesBelow(dir) {
+  const files = [];
+  const queue = [[dir, 0]];
+  while (queue.length) {
+    const [d, depth] = queue.shift();
+    let entries;
+    try { entries = fs.readdirSync(d, { withFileTypes: true }); } catch { continue; }
+    for (const e of entries) {
+      const abs = path.join(d, e.name);
+      if (e.isDirectory() && !WALK.skip.includes(e.name)) {
+        if (depth + 1 > WALK.maxDepth) return { files, overflow: true };
+        queue.push([abs, depth + 1]);
+      } else {
+        files.push(abs);
+        if (files.length > WALK.maxFiles) return { files, overflow: true };
+      }
+    }
+  }
+  return { files, overflow: false };
+}
+
+const isDir = (abs) => { try { return fs.statSync(abs).isDirectory(); } catch { return false; } };
+
+// Shell targets → absolute targets, resolved against the disk: a path that must exist is dropped when
+// it doesn't (a branch name), a folder that is deleted, moved or restored adds every file below it, and
+// a copy into a folder adds <folder>/<source name> (and the files of a copied folder). A pattern or a
+// folder too big to check becomes { unknown } — which files it touches can't be told.
+function resolveOnDisk(writes, cwd) {
+  const out = [];
+  const addFolder = (srcDir, destDir) => {
+    if (WALK.skip.includes(path.basename(srcDir))) return; // listed, not entered
+    const below = filesBelow(srcDir);
+    if (below.overflow) out.push({ abs: destDir, kind: 'write', unknown: true });
+    for (const file of below.files) out.push({ abs: path.join(destDir, path.relative(srcDir, file)), kind: 'write' });
+  };
+  for (const w of writes) {
+    const abs = path.resolve(cwd, w.path);
+    if (w.pattern) { out.push({ abs: cwd, kind: 'write', unknown: true }); continue; }
+    if (w.ifExists && !fs.existsSync(abs)) continue;
+    out.push({ abs, kind: w.kind });
+    if (w.walk && isDir(abs)) addFolder(abs, abs);
+    for (const s of w.into || []) {
+      const src = path.resolve(cwd, s);
+      const into = isDir(abs) ? (s.endsWith('/') ? abs : path.join(abs, path.basename(src))) : abs;
+      if (into !== abs) out.push({ abs: into, kind: 'write' });
+      if (isDir(src)) addFolder(src, into);
+    }
+  }
+  return out;
+}
+
+// Only the master commits and changes branches: helpers and other agents may not run git commands
+// that replace the working files wholesale. → deny reason or null
+function helperGitRule(command, cwd) {
+  for (const { sub, args, dir } of gitCalls(command)) {
+    const where = path.resolve(cwd, dir);
+    const branchSwitch = sub === 'switch' || (sub === 'checkout' && isBranchCheckout(args, where));
+    if (sub === 'stash' || (sub === 'reset' && args.includes('--hard')) || ['merge', 'cherry-pick', 'revert'].includes(sub) || branchSwitch) {
+      return `Only the master commits and changes branches; helpers and other agents may not run "git ${sub}". Say in your reply what you need.`;
+    }
+  }
+  return null;
+}
+
+// "git checkout" that changes the branch: a new branch, "-", or only names that aren't existing paths.
+function isBranchCheckout(args, where) {
+  if (args.some((a) => ['-b', '-B', '--orphan', '-'].includes(a))) return true;
+  const dash = args.indexOf('--');
+  const before = (dash === -1 ? args : args.slice(0, dash)).filter((a) => !a.startsWith('-'));
+  if (dash !== -1) return false; // "<rev> -- <paths>" restores files
+  if (!before.length) return false;
+  return before.every((a) => a !== '.' && !/[*?[]/.test(a) && !fs.existsSync(path.resolve(where, a)));
 }
 
 // The file's content after an Edit / Write / MultiEdit, or null when it can't be worked out
@@ -207,13 +286,23 @@ function decideToolCall(input, env) {
   const root = projectRoot(input, env);
   const cfg = loadConfig(root);
   if (cfg.status === 'absent') return undefined;
+  const caller = whoIsCalling(input);
+  const helper = caller.kind !== 'master';
+  // Before the write targets: "git stash" or "git merge" name no file but replace many.
+  if (helper && input.tool_name === 'Bash' && (cfg.status !== 'ok' || isHookEnabled('verifier-integrity', cfg.config, env))) {
+    const git = helperGitRule(String((input.tool_input || {}).command || ''), input.cwd || root);
+    if (git) return deny(`hold-my-dev-specs: ${git}`);
+  }
   const targets = writeTargets(input);
   if (!targets.length) return undefined;
-  const caller = whoIsCalling(input);
   const active = loadActiveLedger(root);
 
   let askReason = null;
-  for (const { abs, via, kind } of targets) {
+  for (const { abs, via, kind, unknown } of targets) {
+    if (unknown) {
+      if (helper) return deny(`hold-my-dev-specs: this command may change files that can't be checked (a pattern, or too many files below ${path.relative(root, abs) || '.'}). Name the files instead.`);
+      continue;
+    }
     const rel = realProjectPath(root, abs);
     if (rel === null) continue; // outside the project: personal safety hooks decide
     const result = checkTarget(rel, via, kind, input, root, cfg, caller, active, env);
