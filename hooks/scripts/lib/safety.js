@@ -152,6 +152,27 @@ function checkRm(cmd, cwd) {
   return sawRm ? { ask: 'Ask first: deleting files.' } : null;
 }
 
+const GIT_LOSE_WORK = 'Ask first: git action that can lose work or rewrite history.';
+
+// `git checkout <path>` throws away uncommitted changes to that path, with or without `--`.
+// Asks when an argument is `--`, `.`, a pathspec pattern, or an existing file or folder (from cwd);
+// a branch switch (or a new branch from -b / -B / --orphan) stays allowed.
+function checkCheckout(cmd, cwd) {
+  const re = /\bgit\s+checkout\b([^;&|)`\n]*)/g;
+  let m;
+  while ((m = re.exec(cmd)) !== null) {
+    const tokens = m[1].trim().split(/\s+/).map(stripQuotes).filter(Boolean);
+    for (let i = 0; i < tokens.length; i++) {
+      const t = tokens[i];
+      if (['-b', '-B', '--orphan'].includes(t)) { i++; continue; }
+      if (t === '--' || t === '.' || /[*?[]/.test(t)) return { ask: GIT_LOSE_WORK };
+      if (t.startsWith('-')) continue;
+      if (fs.existsSync(resolveFrom(cwd, t))) return { ask: GIT_LOSE_WORK };
+    }
+  }
+  return null;
+}
+
 function checkPush(cmd, cwd) {
   const segs = cmd.split(/&&|\|\||;|\n|\|/).filter((s) => /\bgit\b.*\bpush\b/.test(s));
   if (!segs.length) return null;
@@ -200,6 +221,7 @@ function checkCommitSecrets(cmd, cwd) {
 
 // ---------- Bash: Ask first ----------
 
+
 const ASK_RULES = [
   [/\bgh\s+(pr\s+(create|merge|close|comment|review)|release\s+create|repo\s+(create|delete|edit)|issue\s+(create|comment|close)|gist\s+create|api\b)/, 'Ask first: GitHub action that changes something online.'],
   [/\b(npm|pnpm|yarn)\s+publish\b|\bcargo\s+publish\b|\btwine\s+upload\b|\bgem\s+push\b|\bdocker\s+push\b/, 'Ask first: publishing a package or image.'],
@@ -207,7 +229,7 @@ const ASK_RULES = [
   [/\b(scp|sftp)\b|\brsync\b[^;&|\n]*\s\S+:/, 'Ask first: copying files to another machine.'],
   [/\bcurl\b[^;&|\n]*\s(-X\s*(POST|PUT|PATCH|DELETE)|--data\b|-d\s|--data-\w+|-F\s|--form\b|-T\s|--upload-file\b)/i, 'Ask first: sending data to an online service.'],
   [/\b(sendmail|mailx?|mutt)\b/, 'Ask first: sending email.'],
-  [/\bgit\s+(reset\s+--hard|clean\s+-[a-zA-Z]*f|checkout\s+--\s|restore\s+(?!--staged)|stash\s+(drop|clear)|branch\s+-[dD]\b|filter-branch|filter-repo)/, 'Ask first: git action that can lose work or rewrite history.'],
+  [/\bgit\s+(reset\s+--hard|clean\s+-[a-zA-Z]*f|checkout\s+--\s|restore\s+(?!--staged)|stash\s+(drop|clear)|branch\s+-[dD]\b|filter-branch|filter-repo)/, GIT_LOSE_WORK],
   [/\b(DROP\s+(TABLE|DATABASE|SCHEMA)|TRUNCATE\s+TABLE?|DELETE\s+FROM)\b/i, 'Ask first: deleting database data.'],
   [/\b(prisma\s+migrate|alembic\s+(upgrade|downgrade)|db:migrate|manage\.py\s+migrate|knex\s+migrate|sequelize\s+db:migrate|flyway\s+migrate|dbmate\s+(up|down|migrate))\b/, 'Ask first: database migration.'],
   [/\bfind\b[^;&|\n]*\s(-delete|-exec\s+rm)\b/, 'Ask first: deleting files.'],
@@ -237,6 +259,8 @@ function analyzeBash(cmd, cwd) {
   }
   if (rm) return rm;
   if (push) return push;
+  const checkout = checkCheckout(cmd, cwd);
+  if (checkout) return checkout;
   for (const [re, reason] of ASK_RULES) if (re.test(cmd)) return { ask: reason };
   return null;
 }

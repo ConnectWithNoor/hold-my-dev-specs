@@ -166,6 +166,28 @@ test('deny: Read <project>/.envrc (review gap)', () => {
   assert.equal(kind(fileIn(FEATURE.root, 'Read', path.join(FEATURE.root, `.${'env'}rc`))), 'deny');
 });
 
+// ── S12: git checkout of a path throws away uncommitted changes ──────────
+test('S12: git checkout with a path, ".", "--" or a pattern asks first; branch switches stay allowed', () => {
+  const { root } = repo('feature');
+  fs.mkdirSync(path.join(root, 'lib'));
+  fs.writeFileSync(path.join(root, 'lib', 'a.js'), 'x');
+  for (const cmd of [
+    'git checkout README.md', 'git checkout .', 'git checkout lib', 'git checkout lib/a.js', "git checkout 'README.md'",
+    'git checkout -- README.md', 'git checkout HEAD -- README.md', 'git checkout main README.md', 'git checkout HEAD~1 .',
+    "git checkout '*.md'", 'git checkout -f .', 'git status && git checkout .', 'echo ok; git checkout lib',
+  ]) {
+    const r = bashIn(root, cmd);
+    assert.equal(kind(r), 'ask', cmd);
+    assert.match(r.ask, /git action that can lose work/, cmd);
+  }
+  for (const cmd of [
+    'git checkout main', 'git checkout feature', 'git checkout -', 'git checkout -b new-work', 'git checkout -b lib',
+    'git checkout -B again main', 'git checkout --orphan fresh', 'git checkout no-such-path', 'git checkout-index -h',
+  ]) {
+    assert.equal(kind(bashIn(root, cmd)), 'none', cmd);
+  }
+});
+
 // ── When the safety copy is on ───────────────────────────────────────────
 test('on in standard and strict; off in minimal, when disabled, with the machine switch, or without settings', () => {
   assert.equal(kind(bashIn(repo('feature', validConfig({ profile: 'strict' })).root, 'cat .env')), 'deny');
