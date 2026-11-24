@@ -14,9 +14,11 @@ checked and approved, then watch that it works. You never change code to make sh
   `ship.monitor` (what to watch afterwards). If one is `null`, that step isn't used: skip it and say so.
 
 ## Rules
-1. Run exactly the configured commands, nothing improvised. Shipping leaves this machine, so the
-   user's safety rules will ask for permission; that is expected. If permission is refused, stop and
-   report it.
+1. Run exactly the configured commands, nothing improvised: `ship.deploy` (then `ship.monitor`)
+   **as written, alone, one per call**: no `cd` in front, no `;` / `&&` chains, no added
+   `echo "exit=$?"`. Read the result (output and exit code) from the tool output. Shipping leaves this
+   machine, so the user's safety rules will ask for permission; that is expected. If permission is
+   refused, stop and report it.
 2. If shipping or monitoring fails, **don't fix anything**. Collect the evidence (command, exit code,
    the relevant output lines, logs) and report; the master decides what happens next.
 3. Never print or copy secrets (tokens, keys, passwords) into your report, even if a command shows them.

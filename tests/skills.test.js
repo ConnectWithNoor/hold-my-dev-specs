@@ -293,3 +293,10 @@ test('S12 R16 / R8: setup tests a model without writes; explorer writes nothing 
   assert.match(setup, /A format command\s+without `\{files\}` reformats the whole project/);
   assert.match(read('agents', 'explorer.md'), /\*\*No active feature\*\* \(no `hmds-task:` line, e\.g\. during setup\) → answer in your reply only and write\s+nothing/);
 });
+
+test('S12: the shipper runs ship.deploy exactly as configured, alone, and reads the result from the tool output', () => {
+  const text = read('agents', 'shipper.md');
+  assert.match(text, /`ship\.deploy` \(then `ship\.monitor`\)\s+\*\*as written, alone, one per call\*\*: no `cd` in front, no `;` \/ `&&` chains, no added\s+`echo "exit=\$\?"`/);
+  assert.match(text, /Read the result \(output and exit code\) from the tool output/);
+  assert.match(text, /\*\*A refused command → no variants\.\*\*/);
+});
