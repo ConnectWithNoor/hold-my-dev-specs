@@ -41,6 +41,7 @@ If you already have your own safety hooks, switch the copy off: add `"HOLD_MY_DE
 to the `env` section of the same file.
 
 ## Developer notes
+- Why the plugin works the way it does: [decision records](docs/adr/README.md).
 - Run the tests: `npm test` (uses Node's built-in test runner; nothing to install).
 - Run the skill-trigger evals: `npm run eval` (18 short Claude sessions that check each skill starts
   when it should and not otherwise; costs usage, about $1.50 per run).
