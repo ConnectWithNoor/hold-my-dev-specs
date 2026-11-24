@@ -47,7 +47,7 @@ Hooks enforce this table; the helper is known from the hook input (`hold-my-dev-
 | Explorer | its report only | `explore-<topic>.md` |
 | Spec-miner | `specs/baseline/**` only, its summary included (`specs/baseline/index.md`) | — |
 | Shipper | its report only; deploy and monitor commands come from the project settings and stay Ask first | `ship.md` |
-| Master | specs (approved ones locked), ledger (approval values and `done` excepted), manifests, `ACTIVE`; the settings file only with a permission prompt; Claude Code's permission files (`.claude/settings.json`, `.claude/settings.local.json`) only through Claude Code's own prompt, and no helper or other agent ever; everything else through the same gate; in `strict` never protected or test paths (`specs/**` excepted) | `final-check.md`; `break-loop-<task>.md` (retro, only after the user's yes) |
+| Master | specs (approved ones locked), ledger (approval values and `done` excepted), manifests, `ACTIVE`; the settings file only with a permission prompt; Claude Code's permission files (`.claude/settings.json`, `.claude/settings.local.json`) and `.mcp.json` (tool servers) only through Claude Code's own prompt, and no helper or other agent ever; everything else through the same gate; in `strict` never protected or test paths (`specs/**` excepted) | `final-check.md`; `break-loop-<task>.md` (retro, only after the user's yes) |
 | Any other agent (not from this plugin, e.g. Claude Code's general-purpose helper) | source code through the gate only; never protected paths | none: no report files |
 
 No helper or other agent may ever change `.claude/hold-my-dev-specs.json`, and while the settings are

@@ -101,6 +101,15 @@ test('S11: helpers and other agents may never change the permission files, even 
   }
 });
 
+test('S11 review: .mcp.json (tool servers) — only the master; helpers and other agents denied by Write and shell', () => {
+  const root = makeProject({ ledger: ledgerText(APPROVED) });
+  assert.equal(write(makeProject({ active: null }), '.mcp.json', undefined, '{}'), undefined);
+  for (const who of [H('implementer'), H('test-author'), H('verifier'), H('explorer'), 'general-purpose']) {
+    assert.match(reason(write(root, '.mcp.json', who, '{"mcpServers":{}}')), /Only the master may change \.mcp\.json/, who);
+    assert.ok(denied(bash(root, 'echo {} > .mcp.json', who)), `${who} via shell`);
+  }
+});
+
 // ── Approval values ──────────────────────────────────────────────────────
 const LEDGER = 'specs/001-login/ledger.md';
 const editLedger = (root, from, to, who) =>
