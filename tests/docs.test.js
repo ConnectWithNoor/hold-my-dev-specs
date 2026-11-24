@@ -49,6 +49,7 @@ for (const [key, file] of Object.entries(DOCS)) {
       assert.match(block.split('\n')[0], /^(flowchart (LR|TD|TB|RL|BT)|stateDiagram-v2|sequenceDiagram)$/);
       for (const line of block.split('\n')) {
         assert.equal((line.match(/"/g) || []).length % 2, 0, `quotes: ${line}`);
+        assert.ok(!line.includes(';'), `a ; ends a Mermaid statement: ${line}`);
         assert.equal((line.match(/\[/g) || []).length, (line.match(/\]/g) || []).length, `brackets: ${line}`);
       }
     }

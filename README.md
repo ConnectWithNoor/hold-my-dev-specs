@@ -81,7 +81,7 @@ stateDiagram-v2
 | `approve spec` | the spec and rubric are right | recorded with the time; the agent writes the plan |
 | `approve plan` | the plan is right (after the spec) | recorded; building may start |
 | `approve both` | quick lane only | spec and plan approved together |
-| `revoke` | any time | both approvals are taken back and building stops |
+| `revoke` | any time before shipping | both approvals are taken back and building stops |
 
 Each phrase shows a confirmation line (`✅ Spec approved 19:20`, `↩ Approvals revoked …`). A phrase with
 anything added records nothing; a near miss such as `approve spec.` shows the exact phrase to type.
@@ -121,7 +121,7 @@ on 2026-11-24**; follow the links for the current state.
 | **hold-my-dev-specs** (this) | Claude Code plugin | **Enforced by hooks**: code edits blocked until your typed approvals; approved documents locked | Required (a separate test author) | A separate verifier per task, plus a whole-feature check | — |
 | [Spec Kit](https://github.com/github/spec-kit) (GitHub) | Toolkit for 40+ coding agents: constitution → specify → plan → tasks → implement → converge | Review each result before continuing (guidance); hooks and quality gates come as extensions | Not required | Not described as a separate agent | Works with many agents and switches between them, extensions and presets, offline use, not limited to software |
 | [Kiro](https://kiro.dev/docs/specs/) (AWS) | Its own agent (IDE, CLI, web): requirements → design → tasks | A review step per phase; its hooks *can* block tools if you write them | Not described | Requirements analysis before design | A complete product (IDE, CLI, web, mobile), EARS requirements, parallel task waves, cloud sessions |
-| [Superpowers](https://github.com/obra/superpowers) | Skills plugin for Claude Code and 15 other tools: brainstorm → plan → subagents per task | Sign-off on design and plan (skills; no blocking hook) | Required by its skills | Two-stage review after each task | Broad skill set, git worktrees, very large community |
+| [Superpowers](https://github.com/obra/superpowers) | Skills plugin for Claude Code and 15 other tools: brainstorm → plan → subagents per task | Sign-off on design and plan (skills; no blocking hook) | Required by its skills | Two-stage review after each task | Broad skill set, git worktrees, a large community (about 326k GitHub stars on 2026-11-24) |
 | [BMAD Method](https://github.com/bmad-code-org/BMAD-METHOD) | Agile method with role agents (analyst, PM, architect, developer…) | You decide at review points (guidance) | Optional (acceptance-test mode) | `code-review` with several independent reviewers | Deep planning and product roles, modules beyond software |
 | [OpenSpec](https://github.com/Fission-AI/OpenSpec) | Lightweight CLI for 30+ tools: propose → apply → verify → archive change folders | "Review the plan before any code is written" (guidance; no rigid gates by design) | Not described | `verify-change` checks code against the spec | Light, tool-agnostic, spec changes tracked over time, built for existing code |
 

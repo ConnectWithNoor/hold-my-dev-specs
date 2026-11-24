@@ -77,7 +77,7 @@ sequenceDiagram
     else FAIL
         VE-->>M: FAIL with findings
         M->>IM: fresh implementer as fixer: task, findings, changed files
-        Note over M,VE: verify again; after the fix-round limit, ask the user
+        Note over M,VE: verify again, and after the fix-round limit ask the user
     end
 ```
 
