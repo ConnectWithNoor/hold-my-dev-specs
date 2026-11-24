@@ -24,11 +24,16 @@ apart.
   feature's `spec.md` or `rubric.md`; after `approve plan`, `plan.md`. Changing one means `revoke`, the
   change, and a new approval. `tasks.md` stays editable.
 - After a `revoke` with nothing to change, the agent asks for the approvals again right away.
+- A short message that starts with "approve" but isn't exact (`approve spec.`) records nothing and
+  shows one line with the exact phrase the ledger is waiting for.
 - No one-time codes: they add friction for little extra safety, given the three conditions above.
 
 ## Consequences
 - An approval can't be faked by an agent, a helper report or another session through the file tools.
   Interpreter scripts remain a known limit ([ADR-0006](0006-plan-gate-and-write-rights.md)).
+- **Known limit:** the hook sees only the message text. A prompt the master sends itself (scheduled or
+  repeated) at the moment `awaiting` matches would be recorded; the ✅ line makes it visible, and the
+  README names this limit.
 - The user has to type the phrase exactly; the agent always tells them which one.
 
-**Replaces internal records:** B24, B30, B35 (order), B50 (e).
+**Replaces internal records:** B24, B30, B35 (order), B50 (e), B52 (R10, R24).

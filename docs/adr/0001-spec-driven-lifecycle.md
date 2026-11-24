@@ -22,7 +22,10 @@ intent → spec ──approve spec──→ plan ──approve plan──→ tas
 - **Plan:** how to build it, including test seams and risks. The user approves it.
 - **Tasks → build → verify:** agentic. The user is involved only when the agent asks.
 - **Validate → review → ship:** a final check by the master, then a manual review by the user
-  ("checked, OK to ship"), then merge and optional deploy.
+  ("checked, OK to ship"), then merge and optional deploy. The "done" record is always committed on a
+  branch, never directly on the main branch: on the feature branch before the merge, or (with a deploy
+  step, whose report belongs to the still-active feature) on a short `chore/<feature>-done` branch
+  after it.
 - **Feedback loops:** bugs go back to the build; a wrong or missing requirement goes back to the spec
   (the agent pauses, explains the gap with evidence, and proposes the change); a changed goal goes back
   to intent.
@@ -40,4 +43,4 @@ intent → spec ──approve spec──→ plan ──approve plan──→ tas
 - Small fixes are not slowed down by the full ceremony (quick lane).
 - Work in parallel features has to be paused and resumed, not interleaved.
 
-**Replaces internal records:** D19, D24, D28, D32, D34, D49, B3, B18, B19, B32.
+**Replaces internal records:** D19, D24, D28, D32, D34, D49, B3, B18, B19, B32, B52 (A5).

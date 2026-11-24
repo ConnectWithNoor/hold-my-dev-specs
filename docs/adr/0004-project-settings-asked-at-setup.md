@@ -27,7 +27,9 @@ be. Silent defaults lead to agents guessing, and guesses become bugs.
   | Safety copy, context manifest, workflow-state note | ❌ | ✅ | ✅ |
   | Format / lint / typecheck after each reply while building; quality configs locked for the master too | ❌ | ❌ | ✅ |
 
-  Single hooks can be switched off with `disabledHooks`.
+  Single hooks can be switched off with `disabledHooks`. In `strict`, the configured format / lint /
+  typecheck commands run by themselves, outside Claude Code's permission prompts: the README says so,
+  and setup warns clearly about a format command without `{files}` (it would reformat locked files).
 - Suggested values at setup: 3 fix rounds, manifest caps of 32 KB per file and 128 KB in total, and
   the skip keyword `#nostate`. `paths.open` (suggested `specs/**`, `docs/**`, `CLAUDE.md`) is where
   writing is allowed before approval.
@@ -36,4 +38,4 @@ be. Silent defaults lead to agents guessing, and guesses become bugs.
 - A new project needs one interview of a few minutes before the first feature.
 - Every rule that differs between projects can be traced to one file.
 
-**Replaces internal records:** D21, D35, D38, B6, B11, B12, B42 (`CLAUDE.md` open path).
+**Replaces internal records:** D21, D35, D38, B6, B11, B12, B42 (`CLAUDE.md` open path), B52 (R8).

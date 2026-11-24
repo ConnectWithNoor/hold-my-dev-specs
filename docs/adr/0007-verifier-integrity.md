@@ -11,9 +11,11 @@ spec instead. A verifier that only reads the implementer's report would trust wh
   **protected paths**: acceptance tests (`paths.tests`, only the test author writes there), quality
   configs and their ignore files, specs, rubric and plan, CI and guardrail files. Protected =
   `paths.protected` + `paths.tests` + `specs/**`.
-- **Diff check:** the verifier lists every file changed since the task's base commit. A protected file
-  changed by the implementer fails the task, whatever else is true. This also catches shell-based
-  edits that the hooks missed.
+- **Diff check:** the verifier lists every file changed since the task's base commit. Nothing is
+  committed before a task passes, so the test author's new tests show up as changes too: the test
+  author lists each test file it wrote with a SHA-256 fingerprint, and the verifier recomputes them.
+  A listed test file that changed, or any other protected file that changed, fails the task, whatever
+  else is true. This also catches shell-based edits that the hooks missed.
 - **Evidence, not trust:** the verifier runs the project's tests and checks itself, with exactly the
   configured commands. Every acceptance criterion needs evidence from the rubric (a passing test, a
   screenshot, a log line); missing evidence means "not met". It says which signals it had (browser,
@@ -40,4 +42,4 @@ spec instead. A verifier that only reads the implementer's report would trust wh
   feature run).
 
 **Replaces internal records:** D20 (L2), D37, D39, D42, D50 (evaluator pattern), D51, B41 (lens mode),
-B44 (computed score), B50 (b).
+B44 (computed score), B50 (b), B52 (A4).

@@ -18,7 +18,11 @@ shouldn't get every warning twice.
     leaves the machine (push, pull request, deploy, publish, email); deleting files; git actions that
     can lose work (`reset --hard`, `clean -f`, `restore`, `git checkout` of a path, `.` or a pattern,
     branch delete); database drops and migrations; `sudo` and system installs; `chmod 777`; every package
-    install; changes to Claude Code configuration; committing directly on `main` / `master`.
+    install, including `npx` when it would download something (`-y`, a version, or a tool not in
+    `node_modules/.bin`), but not `npx` of a tool the project already has; changes to Claude Code
+    configuration (not `git add` / `commit` / `diff` of those files, which only stage or show them);
+    committing directly on `main` / `master`.
+  - Secret reads also cover a Grep whose `glob` names secret files (e.g. `.env*`).
 - It runs in the blocking action hook together with the gate (a deny from either wins). Secret **reads**
   are checked in the fail-open read hook ([ADR-0009](0009-hook-runtime-and-failure-modes.md)).
 - **On** in the `standard` and `strict` profiles. **Off** with profile `minimal`, with `"safety"` in
@@ -32,6 +36,9 @@ shouldn't get every warning twice.
 
 ## Consequences
 - New users get basic protection without setting anything up.
-- **Known limit:** file names a command reads from elsewhere (`xargs cat < list.txt`) can't be seen.
+- **Known limits:** file names a command reads from elsewhere (`xargs cat < list.txt`) can't be seen,
+  and a Grep over a whole folder can still reach secret files: Claude Code's deny rules are the real
+  protection there.
 
-**Replaces internal records:** D23, D40 (adopted patterns), D44, D45 (placement), B25, B45, B51 (3).
+**Replaces internal records:** D23, D40 (adopted patterns), D44, D45 (placement), B25, B45, B51 (3),
+B52 (A7, A8, R14).
