@@ -11,7 +11,7 @@ Goal: one real run of setup → full-lane feature → retro, with the cost of ea
 - Feature `001-cli`: `node cli.js greet <name>` / `bye <name>`, otherwise print the usage and exit 1. It was
   split into 2 tasks (T01 `bye()`, T02 `cli.js`), and both passed verification in round 1.
 - **The usage limit cut the run off** during the final convergence check (the verifier's last look at the
-  whole feature). Ship did not run.
+  whole feature). Ship did not run here; it ran separately (see "Live run through Ship").
 - The retro ran separately on 2026-11-24 (Claude Code 2.1.325), on the eval fixture `done-feature.sh`
   (a finished feature whose task hit the fix-round cap), in 2 turns.
 
@@ -86,6 +86,31 @@ first (the user's own rule), so the probe used a branch, as the master does. The
 that with `Bash(npm test *)`, both `npm test` and `npm test 2>&1 | tail -5` run without a prompt,
 `node --test` is still refused, and `echo $(( … ))` runs. Allow-rule syntax: code.claude.com/docs/en/permissions
 (the space form `Bash(npm test *)`; `:*` is an equivalent older spelling).
+
+## Live run through Ship (2026-11-24)
+A separate background run (`claude -p`, `acceptEdits`, plugin from the folder, Claude Code 2.1.325) checked the
+order of the last stages after the S12 fix.
+- **Starting point:** feature `001-shout` (`shout(name)` added to the sample project) on its feature branch, at
+  `stage: review`, both approvals in, T01 verified, final check written, `ship.deploy: "echo deployed"`,
+  `git.merge: local`, tiers `sonnet` / `haiku`. Allow rules were passed for `git merge|commit|add|switch|checkout`,
+  `echo deployed` and `npm test`, because a background run can't answer prompts.
+- **One message:** "I checked the shout feature locally: checked, OK to ship."
+- **Result:** as the playbook says:
+  1. `stage: ship` was committed on the feature branch and fast-forwarded into `main`.
+  2. The shipper ran the deploy from `main` and wrote `reports/ship.md`.
+  3. `chore/001-shout-done` recorded `stage: done`, cleared `specs/ACTIVE`, committed the ledger and the
+     report, and was fast-forwarded.
+
+  The working tree ended clean, nothing was committed directly on `main`, nothing was pushed, and the
+  master offered the retro.
+- **Cost:** **$0.32** (16 turns, one shipper run).
+- **Observations:**
+  - The shipper tried `echo deployed; echo "exit=$?"` to capture the exit code, which needs a prompt. It
+    then retried once with a `cd` in front, against its no-variants rule, before running the plain
+    command. Possible fix: tell the shipper to run `ship.deploy` exactly as configured, alone, and read
+    the result from the tool output.
+  - The master noticed that the fixture's hand-written log times lay after the real clock. It left them
+    alone and said so. That was the fixture's fault, not the plugin's.
 
 ## Smaller observations (no decision needed yet)
 - The master tried twice to edit the ledger's hook-written approval line ("string not found"). This was
