@@ -188,6 +188,42 @@ test('S12: git checkout with a path, ".", "--" or a pattern asks first; branch s
   }
 });
 
+// ── S12 A7: npx asks only when it would download something ──────────────
+test('S12 A7: npx <tool> runs an installed tool without asking; -y, @version, -p and missing tools ask', () => {
+  const { root } = repo('feature');
+  for (const bin of ['eslint', 'biome']) {
+    fs.mkdirSync(path.join(root, 'node_modules', '.bin'), { recursive: true });
+    fs.writeFileSync(path.join(root, 'node_modules', '.bin', bin), '');
+  }
+  for (const cmd of ['npx eslint .', 'npx --no-install eslint src', 'npx @biomejs/biome check', 'npm test && npx eslint .']) {
+    assert.equal(kind(bashIn(root, cmd)), 'none', cmd);
+  }
+  for (const cmd of ['npx tsc --noEmit', 'npx -y eslint .', 'npx --yes eslint', 'npx eslint@8 .', 'npx -p eslint eslint .', 'npx --package=eslint eslint']) {
+    const r = bashIn(root, cmd);
+    assert.equal(kind(r), 'ask', cmd);
+    assert.match(r.ask, /installing a package/, cmd);
+  }
+});
+
+// ── S12 A8: git that only stages or shows Claude configuration doesn't ask ──
+test('S12 A8: git add / commit / diff of .claude files pass; real changes to them still ask', () => {
+  for (const cmd of ['git add CLAUDE.md .claude/settings.json', 'git commit -m "chore: x" .claude/settings.json', 'git diff .claude/settings.json', 'git log -- .claude/agents']) {
+    assert.equal(kind(bashIn(FEATURE.root, cmd)), 'none', cmd);
+  }
+  for (const cmd of ['echo {} > .claude/settings.json', 'git add x && cp a.json .claude/settings.json']) {
+    assert.match(bashIn(FEATURE.root, cmd).ask, /changing Claude configuration/, cmd);
+  }
+});
+
+// ── S12 R14: a Grep glob that names secret files ─────────────────────────
+test('S12 R14: Grep is denied when its glob names secret files', () => {
+  const grep = (glob) => decideSafety({ tool_name: 'Grep', cwd: FEATURE.root, tool_input: { pattern: 'x', glob } }, envFor(FEATURE.root));
+  for (const glob of ['.env*', '.env', '**/.env', '.env.*', '*.pem', '**/*.key', '{*.js,.envrc}', 'id_rsa']) {
+    assert.equal(kind(grep(glob)), 'deny', glob);
+  }
+  for (const glob of ['*.js', '**/*.test.js', '.env.example', 'src/**']) assert.equal(kind(grep(glob)), 'none', glob);
+});
+
 // ── When the safety copy is on ───────────────────────────────────────────
 test('on in standard and strict; off in minimal, when disabled, with the machine switch, or without settings', () => {
   assert.equal(kind(bashIn(repo('feature', validConfig({ profile: 'strict' })).root, 'cat .env')), 'deny');

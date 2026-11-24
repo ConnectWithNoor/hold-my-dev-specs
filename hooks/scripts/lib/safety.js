@@ -153,6 +153,34 @@ function checkRm(cmd, cwd) {
 }
 
 const GIT_LOSE_WORK = 'Ask first: git action that can lose work or rewrite history.';
+const INSTALL_ASK = 'Ask first: installing a package/library (say whether the approved plan lists it).';
+
+// "npx <tool>" runs an installed tool when node_modules/.bin/<tool> exists (from the command's folder);
+// otherwise it downloads one. -y / --yes, -p / --package and <pkg>@<version> always install.
+function checkNpx(cmd, cwd) {
+  const re = /(?:^|[\s;&|(`]|\$\()npx\s+([^;&|)`\n]*)/g;
+  let m;
+  while ((m = re.exec(cmd)) !== null) {
+    const tokens = m[1].trim().split(/\s+/).map(stripQuotes).filter(Boolean);
+    if (tokens.some((x) => ['-y', '--yes', '-p'].includes(x) || x.startsWith('--package'))) return { ask: INSTALL_ASK };
+    const pkg = tokens.find((x) => !x.startsWith('-'));
+    if (!pkg) continue;
+    if (pkg.lastIndexOf('@') > 0) return { ask: INSTALL_ASK };
+    const bin = pkg.split('/').pop();
+    if (!fs.existsSync(path.join(cwd, 'node_modules', '.bin', bin))) return { ask: INSTALL_ASK };
+  }
+  return null;
+}
+
+// Changing Claude configuration — except git commands that only stage, commit or show it.
+const CLAUDE_CONFIG_RE = /(~|\$HOME|\/home\/[^\/\s]+)\/\.claude\/(settings|hooks|CLAUDE\.md|guides|agents|skills)|(^|[\s'"])\.claude\/(settings|hooks|agents|skills)/;
+function checkClaudeConfig(cmd) {
+  for (const part of cmd.split(/&&|\|\||[;|\n]/)) {
+    if (/^\s*git\s+(add|commit|diff|log|show|status)\b/.test(part)) continue;
+    if (CLAUDE_CONFIG_RE.test(part)) return { ask: 'Ask first: changing Claude configuration.' };
+  }
+  return null;
+}
 
 // `git checkout <path>` throws away uncommitted changes to that path, with or without `--`.
 // Asks when an argument is `--`, `.`, a pathspec pattern, or an existing file or folder (from cwd);
@@ -236,8 +264,7 @@ const ASK_RULES = [
   [/(^|[\s;&|(])sudo\s/, 'Ask first: running with administrator rights (sudo).'],
   [/\bchmod\b[^;&|\n]*(\s0?777\b|\s[ugoa]*a[ugoa]*\+rwx\b|\s-R\b[^;&|\n]*\s0?777\b)/, 'Ask first: chmod 777 removes all protection (anyone can read, change, or run it).'],
   [/\b(pacman|yay|paru)\s+-(S|R|U)/, 'Ask first: installing or removing system packages.'],
-  [/\b(npm|pnpm)\s+(i|install|add|ci)\b|\byarn\s+(add|install)\b|\byarn\s*$|\bbun\s+(add|install|i)\b|\bpip3?\s+install\b|\buv\s+(add|pip\s+install|tool\s+install)\b|\bpoetry\s+add\b|\bpipx\s+install\b|\bcargo\s+(add|install)\b|\bgo\s+(get|install)\b|\bgem\s+install\b|\bcomposer\s+(require|install)\b|\bnpx\s+(-y\s+)?[^-\s]|\bbunx\s/, 'Ask first: installing a package/library (say whether the approved plan lists it).'],
-  [/(~|\$HOME|\/home\/[^\/\s]+)\/\.claude\/(settings|hooks|CLAUDE\.md|guides|agents|skills)|(^|[\s'"])\.claude\/(settings|hooks|agents|skills)/, 'Ask first: changing Claude configuration.'],
+  [/\b(npm|pnpm)\s+(i|install|add|ci)\b|\byarn\s+(add|install)\b|\byarn\s*$|\bbun\s+(add|install|i)\b|\bpip3?\s+install\b|\buv\s+(add|pip\s+install|tool\s+install)\b|\bpoetry\s+add\b|\bpipx\s+install\b|\bcargo\s+(add|install)\b|\bgo\s+(get|install)\b|\bgem\s+install\b|\bcomposer\s+(require|install)\b|\bbunx\s/, INSTALL_ASK],
 ];
 
 function analyzeBash(cmd, cwd) {
@@ -262,7 +289,7 @@ function analyzeBash(cmd, cwd) {
   const checkout = checkCheckout(cmd, cwd);
   if (checkout) return checkout;
   for (const [re, reason] of ASK_RULES) if (re.test(cmd)) return { ask: reason };
-  return null;
+  return checkNpx(cmd, cwd) || checkClaudeConfig(cmd);
 }
 
 // ---------- File tools ----------
@@ -276,11 +303,20 @@ function isClaudeConfigPath(p) {
   return /\/\.claude\//.test(full);
 }
 
+// A Grep glob such as ".env*", "**/.env" or "*.pem" (also inside {a,b}) that names secret files.
+function isSecretGlob(glob) {
+  if (typeof glob !== 'string') return false;
+  return glob.split(/[{},\s]+/).filter(Boolean).some((g) =>
+    /(^|\/)\.env(rc)?(\*|\.\*)?$/.test(g) || isSecretPath(g.replace(/\*+/g, 'x')));
+}
+
 function analyzeFileTool(tool, input, cwd) {
   const p = input.file_path || input.notebook_path || input.path || '';
   const full = p ? resolveFrom(cwd, p) : '';
   if (tool === 'Read' || tool === 'Grep') {
-    if (full && isSecretPath(full)) return { deny: 'Never do: reading a secret file. Templates like .env.example are fine.' };
+    if ((full && isSecretPath(full)) || (tool === 'Grep' && isSecretGlob(input.glob))) {
+      return { deny: 'Never do: reading a secret file. Templates like .env.example are fine.' };
+    }
     return null;
   }
   if (full && isSecretPath(full)) return { ask: 'Ask first: writing to a secret file.' };
