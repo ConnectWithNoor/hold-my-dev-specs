@@ -269,3 +269,12 @@ test('S12 A4: test author fingerprints its test files; the verifier recomputes t
   assert.match(verifier, /if a listed test file's fingerprint differs, or if any\s+other test, spec, rubric/);
   assert.match(read('guides', 'lifecycle.md'), /lists each test file it wrote with a SHA-256 fingerprint, which the\s+verifier checks/);
 });
+
+test('S12 A5: the done record is committed on a branch before or after shipping, never directly on main', () => {
+  const text = read('guides', 'lifecycle.md');
+  assert.match(text, /\*\*Without `ship\.deploy`:\*\* on the feature branch, set `stage: done`/);
+  assert.match(text, /commit \(`docs\(specs\): mark <feature> done`\); then merge as\s+`git\.merge` says/);
+  assert.match(text, /\*\*With `ship\.deploy`:\*\* the shipper writes its report into the active feature/);
+  assert.match(text, /create `chore\/<feature>-done` from the main branch, set `stage: done`/);
+  assert.match(text, /never directly on the main branch/);
+});

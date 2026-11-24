@@ -136,13 +136,25 @@ steps to try it. Wait for a clear yes ("checked, OK to ship"). Problems → back
 analysis once it is fixed. The same goes for a bug found after shipping or by a later feature.
 
 ## 8. Ship
-`stage: ship`. Merge the feature branch as `git.merge` says (`local`: fast-forward into the main
-branch; `pr`: open a pull request — leaving the machine always needs the user's permission). Tell the
-user first that merging into the main branch may ask for permission once if their own safety rules guard
-it; that is expected, not an error. If
-`ship.deploy` is set, start the `shipper`. A failed ship → report with evidence and ask.
+Tell the user first that merging into the main branch may ask for permission once if their own safety
+rules guard it; that is expected, not an error. The "done" record is always committed on a branch,
+never directly on the main branch, so a fresh session can continue from the files.
+
+**Without `ship.deploy`:** on the feature branch, set `stage: done`, `active_task: none`, clear
+`specs/ACTIVE`, add the log line, commit (`docs(specs): mark <feature> done`); then merge as
+`git.merge` says (`local`: fast-forward into the main branch; `pr`: open a pull request — leaving the
+machine always needs the user's permission).
+
+**With `ship.deploy`:** the shipper writes its report into the active feature, so the feature stays
+active until it has run:
+1. On the feature branch: `stage: ship`, log line, commit; merge as `git.merge` says. (`pr`: wait until
+   the user says the pull request is merged, then update the local main branch.)
+2. Start the `shipper` from the main branch. A failed ship → report with evidence and ask; the feature
+   stays at `ship` until the user decides.
+3. Record done on a short branch: create `chore/<feature>-done` from the main branch, set `stage: done`,
+   `active_task: none`, clear `specs/ACTIVE`, add the log line, commit the ledger and the shipper's
+   report, and merge it as in step 1.
 
 ## 9. Done
-`stage: done`, clear `specs/ACTIVE`, report to the user (done · how it was checked · what's left ·
-next step), and offer the `retro` skill (it starts with the break-loop analysis if a task hit the round
-cap or a bug got past the verifier).
+Report to the user (done · how it was checked · what's left · next step), and offer the `retro` skill
+(it starts with the break-loop analysis if a task hit the round cap or a bug got past the verifier).
