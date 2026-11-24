@@ -16,8 +16,18 @@ intent → spec ──approve spec──→ plan ──approve plan──→ tas
 - **The ledger is the record.** Update it after every step: header (`stage`, `awaiting`, `active_task`),
   the task table, one log line. A fresh session must be able to continue from it alone. Never write
   approval values, never log approvals (the approval hook does both).
-- **Real timestamps.** Every log line gets its time from the clock (`date -u +%Y-%m-%dT%H:%M:%SZ`);
-  never estimate or round a time.
+- **One ledger update per event** (a stage changes, a helper starts, a report comes in, a task is
+  verified): header, task row and log line together, in **one** Write of the whole file, or one Edit when
+  only one place changes. Not two or three small edits: each extra call re-reads the whole conversation
+  and costs usage. Base the Write on the file as it is now: after the user types an approval phrase or
+  `revoke`, the hook has changed it, so Read it again first.
+- **Real timestamps, one clock read per event.** Every log line gets its time from the clock
+  (`date -u +%Y-%m-%dT%H:%M:%SZ`); never estimate or round a time. When the event has a git command
+  anyway (e.g. the task commit), add the clock to it: `git commit … && date -u +%Y-%m-%dT%H:%M:%SZ`;
+  otherwise run `date -u +%Y-%m-%dT%H:%M:%SZ` on its own. Both run without a permission prompt.
+- **A refused command → no variants.** If a command is refused, don't retry it in another spelling
+  (`node --test` for `npm test`, a `cd` in front, a different flag): tell the user what was refused and
+  why it is needed. The same rule is in every helper's instructions.
 - **Write specs and the ledger with Write / Edit**, never through shell redirection (`>`, `sed -i`,
   `tee`); the hook accepts ledger changes only through Edit / Write. Create a new ledger by reading the
   template and writing the filled-in file with Write.
@@ -50,6 +60,10 @@ with ids; every criterion gets evidence in the rubric. Use the explorer for fact
 to read a lot for. **Open questions must be empty.** Then set `awaiting: spec` and ask the user to
 review both files and type exactly `approve spec`. Change requests: edit, ask again. Don't move on
 until the ✅ line appears.
+
+**After `revoke`** (at any stage), ask what should change. Nothing (e.g. the user was trying it out) →
+set `awaiting: spec` (quick lane: `both`) and ask for `approve spec` (`approve both`) right away, then
+`approve plan` as usual; the documents are unchanged, so don't rewrite or re-explain them.
 
 **Quick lane:** one `spec.md` from `spec-quick.md` (intent, criteria, 3-line plan) + `rubric.md`;
 `awaiting: both`; the user types `approve both`. Add `T01` to the ledger's task table as `todo`, set
@@ -121,7 +135,9 @@ analysis once it is fixed. The same goes for a bug found after shipping or by a 
 
 ## 8. Ship
 `stage: ship`. Merge the feature branch as `git.merge` says (`local`: fast-forward into the main
-branch; `pr`: open a pull request — leaving the machine always needs the user's permission). If
+branch; `pr`: open a pull request — leaving the machine always needs the user's permission). Tell the
+user first that merging into the main branch may ask for permission once if their own safety rules guard
+it; that is expected, not an error. If
 `ship.deploy` is set, start the `shipper`. A failed ship → report with evidence and ask.
 
 ## 9. Done

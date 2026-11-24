@@ -16,7 +16,8 @@ no permission prompt), and write files with Write / Edit, never through shell re
 - Settings file exists and is complete → show a short summary and ask what to change.
   Unfinished or broken → say which fields, and continue with those only.
 - Look at the repo before asking, so you can propose real values: languages, package files, test folders
-  and commands, lint / format / typecheck configs, CI files, main branch name.
+  and commands, lint / format / typecheck configs, CI files, main branch name. Look with Glob, Grep and
+  Read, not shell `ls` / `find` / `cat` (those can ask for permission; the file tools don't).
 - Existing code but no `specs/baseline/` → remember it for the offer at the end (section 4).
 
 ## 2. Interview
@@ -41,20 +42,31 @@ where the guide suggests one:
    keyword (suggest `#nostate`).
 7. **Ship:** manual review `local` or `staging`, deploy command, monitor command (`null` = not used).
 8. **Git:** main branch name, merge method `local` or `pr`.
+9. **Allow rules** (guide section "Allow rules for the project's commands"): show the exact rule for each
+   configured command and ask: shared `.claude/settings.json`, personal `.claude/settings.local.json`, or
+   none. For each rule, name the file that decides what the command runs; if `paths.protected` doesn't
+   cover it, **warn** (an allowed command is only safe if builders can't change what it runs) and suggest
+   adding it.
 
 ## 3. Confirm, then write
-Restate every value in one table and wait for the user's confirmation. Then:
+Restate every value in one table (the allow rules and their file included) and wait for the user's
+confirmation. Then:
 1. Add a short section to the project's `CLAUDE.md` (create it if missing): in plain words, that this
    project uses hold-my-dev-specs, where the settings live, and that specs live in `specs/`. Link to
    the settings file; don't copy its values.
-2. Write `.claude/hold-my-dev-specs.json` **last** — its existence switches the plugin's hooks on.
+2. If the user chose allow rules: add them to the chosen file as the guide says (read it first, keep
+   everything else).
+3. Write `.claude/hold-my-dev-specs.json` **last** — its existence switches the plugin's hooks on.
    Claude Code asks the user's permission for files in `.claude/` (and the hook does too if the file
    already exists); that is expected.
-3. **Commit both files** without committing to the main branch directly: create `chore/setup` from the
-   main branch, commit (`chore(setup): add hold-my-dev-specs settings`, no AI attribution lines), then
-   merge it into the main branch as `git.merge` says (`local`: fast-forward; `pr`: ask the user before
-   opening a pull request). Ask the user first if the repo isn't a git repository or has uncommitted work.
-4. Check: the next message's workflow-state note must not say "settings are unfinished / broken".
+4. **Commit both files** (and `.claude/settings.json` if the rules went there; never
+   `.claude/settings.local.json`) without committing to the main branch directly: create `chore/setup`
+   from the main branch, commit (`chore(setup): add hold-my-dev-specs settings`, no AI attribution lines),
+   then merge it into the main branch as `git.merge` says (`local`: fast-forward; `pr`: ask the user
+   before opening a pull request). Tell the user first that the merge may ask for permission once if
+   their own safety rules guard the main branch; that is expected. Ask the user first if the repo isn't
+   a git repository or has uncommitted work.
+5. Check: the next message's workflow-state note must not say "settings are unfinished / broken".
 
 ## 4. Offer the spec-miner (only for existing code)
 Only if the repo already has code and there is no `specs/baseline/` yet, offer it in a few plain lines,
@@ -67,6 +79,6 @@ as an offer the user may decline:
 - **No** → nothing happens; it can be done later.
 - **Yes** → per chosen area, start `spec-miner` with the area and a short file name; afterwards show
   the user `specs/baseline/index.md` and the uncertain points, and commit the baseline files the same
-  way as in step 3 (own branch, then merge).
+  way as in step 4 of section 3 (own branch, then merge).
 
 End with the report: done · how it was checked · what's left · next step (usually the `feature` skill).

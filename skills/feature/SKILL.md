@@ -11,6 +11,10 @@ The plugin's guides are two folders up from this skill (`../../guides/`), templa
 **Read `../../guides/lifecycle.md` now and follow it step by step.** Formats: `../../guides/artifacts.md`
 and `../../guides/ledger.md`. Read them (and templates and project files) with the **Read tool**, not
 shell `cat`, so they need no permission prompt.
+The templates, so there is nothing to list: `../../templates/ledger.md`, `../../templates/spec.md`,
+`../../templates/rubric.md`, `../../templates/plan.md`, `../../templates/tasks.md`,
+`../../templates/spec-quick.md`. Look at the project with Glob, Grep and Read, not shell `ls` / `find` /
+`cat` (listing the plugin's folder with `ls` is refused: it is outside the project).
 
 ## Before anything
 - No `.claude/hold-my-dev-specs.json`, or the workflow-state note says the settings are unfinished or
@@ -24,7 +28,8 @@ The user approves by typing an exact phrase, which a hook records:
 - set `awaiting: spec` → the user types `approve spec`
 - set `awaiting: plan` → `approve plan` (only after the spec is approved)
 - quick lane: `awaiting: both` → `approve both`
-- `revoke` (any time) clears both approvals.
+- `revoke` (any time) clears both approvals. Then ask what should change; nothing (e.g. the user was
+  trying it out) → ask for the approvals again right away: `approve spec` (quick lane: `approve both`).
 
 Always tell the user the exact phrase to type. Never write the approval values yourself; the hook blocks
 it. Approved spec, rubric and plan are locked: to change one, the user types `revoke` first.

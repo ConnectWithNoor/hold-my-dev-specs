@@ -84,3 +84,24 @@ into `{files}`. Before approval nothing runs, because source code can't be fixed
 the error and **one** more turn to fix it; if it still fails, the user sees one ⚠ line and Claude stops.
 Changes the formatter makes itself don't trigger another run.
 If verifier and builder map to the same model, setup warns (the critic should differ from the builder).
+
+## Allow rules for the project's commands (optional)
+In `acceptEdits` mode every `npm test` (or other configured command) asks for permission, for the master and
+for every helper. Setup offers Claude Code **allow rules** so these commands run without asking. The rules
+live in Claude Code's own settings, not in this file:
+- **One rule per configured command**, in the form `Bash(<command> *)` (Claude Code's permissions docs:
+  the space before `*` matters, and the rule also matches the bare command). For a `{files}` command, use
+  the part before `{files}`: `prettier --write {files}` → `Bash(prettier --write *)`. Only the commands set
+  in `commands`, exactly as written: a rule for `npm test` doesn't allow `node --test`.
+- **Where (asked):** `.claude/settings.json` = shared with everyone who clones the repo (committed with
+  the setup files), or `.claude/settings.local.json` = only this user (personal, not committed; check
+  with `git check-ignore -q .claude/settings.local.json`, and if it isn't ignored, offer to add it to
+  `.gitignore`). Or no rules: every run then asks.
+- **Write only what was approved.** Read the file first if it exists; add the missing rules to
+  `permissions.allow` and keep everything else. Claude Code asks permission for files in `.claude/`.
+  Helpers and other agents may never change either file (the gate hook denies it).
+- **An allowed command is only safe if builders can't change what it runs.** For each rule, name the file
+  that decides what the command does — `package.json` for `npm test` / `npm run …`, `Makefile` for
+  `make …`, `pyproject.toml` / `tox.ini` / `noxfile.py` for those tools, the script itself for
+  `./scripts/…`. If that file isn't covered by `paths.protected`, **warn** and suggest adding it: otherwise
+  an implementer could change the script behind the rule and run anything without a prompt.

@@ -7,6 +7,8 @@ description: Looks back on a hold-my-dev-specs feature in a software project and
 You are the master. Goal: a few **useful, approved** lessons, written in the right place.
 **Nothing is written without the user's yes** — no lesson, no report, no change to a spec or to
 `CLAUDE.md`.
+You read and propose: **don't run the tests or the project's commands** (the verifier did that; a retro
+needs the records, not a new test run). Read with the Read tool.
 
 Run the **break-loop analysis** (part A) first when either of these happened:
 - the **fix-round cap** was hit on a task (the verifier failed it `fixLoop.maxRounds` times), or
@@ -89,5 +91,15 @@ Also ask whether they have seen the same lesson in another project.
   (`~/.claude/CLAUDE.md`, or the user's own tool for their global setup if they have one). That file
   is outside the project: say exactly what you'd add, and write it only after the user's yes.
 
+## C. Commit what was written
+If anything was written in the project (a saved analysis, lessons in `CLAUDE.md`), commit it the way
+setup does, never directly on the main branch: create `chore/retro-<feature>` from the main branch,
+commit (`docs(retro): lessons from <feature>`, no AI attribution lines), then merge as `git.merge` says
+(`local`: fast-forward; `pr`: ask the user before opening a pull request). Tell the user first that the
+merge may ask for permission once if their own safety rules guard the main branch. If the repo isn't a
+git repository, has other uncommitted work, or the user says not to commit: don't commit, and say
+clearly which files are **uncommitted**. The user's global instructions are outside the project and are
+never committed here.
+
 End with the report: analysis saved or not · proposals done / edited / skipped (where) · lessons
-written (where) · next step.
+written (where) · committed (branch) or uncommitted (which files) · next step.

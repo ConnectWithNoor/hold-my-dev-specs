@@ -12,6 +12,15 @@ only after your approval does it build the work in small, checked steps.
 - **Node.js 22 or newer.** Node.js runs the plugin's small check scripts (hooks).
 - Tested on **Linux only** so far.
 
+## Permission prompts to expect
+- **Setup writes into `.claude/`.** Claude Code always asks before changing files there, so setup's
+  settings file (and allow rules, if you choose them) each show one prompt.
+- **Project commands such as `npm test`** ask every time in `acceptEdits` mode. Setup offers allow
+  rules so they run without asking, either shared with the team or just for you. It also warns when a
+  builder could change what an allowed command runs (for example `package.json` isn't protected).
+- **Merging into the main branch** may ask once if your own safety rules guard it. That is expected,
+  not an error.
+
 ## What the protections can and can't do
 The plugin's checks stop careless mistakes, such as a helper editing tests or code changing before you
 approved the plan. They are **best-effort, not airtight**:

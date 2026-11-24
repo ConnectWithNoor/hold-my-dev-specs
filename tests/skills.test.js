@@ -71,6 +71,22 @@ test('verifier computes the weighted score with a command and uses only that val
   assert.match(text, /Use the computed value only/);
 });
 
+test('S11 (b): verifier scores with prompt-free shell arithmetic in tenths, no node -e', () => {
+  const text = fs.readFileSync(path.join(ROOT, 'agents', 'verifier.md'), 'utf8');
+  assert.match(text, /`echo \$\(\( \(40\*10 \+ 20\*9 \+ 20\*10 \+ 10\*10 \+ 10\*10\) \/ 10 \)\)` prints `98`, meaning 9\.8/);
+  assert.match(text, /compute \*\*tenths\*\*/);
+  assert.doesNotMatch(text, /node -e/);
+});
+
+test('S11 (b): verifier stays read-only — project tests for behaviour, one command per call, no check or /tmp files', () => {
+  const text = fs.readFileSync(path.join(ROOT, 'agents', 'verifier.md'), 'utf8');
+  assert.match(text, /with exactly the commands\s+from the settings/);
+  assert.match(text, /For behaviour, rely on the project's tests/);
+  assert.match(text, /accept that\s+such a try may ask the user's permission/);
+  assert.match(text, /\*\*one command per\s+call\*\*/);
+  assert.match(text, /Write\s+no check files and nothing in \`\/tmp\` or anywhere else/);
+});
+
 // ── Retro break-loop (D65, D43) ──────────────────────────────────────────
 test('retro: break-loop runs on the two triggers, and its description lets the agent start it', () => {
   const { meta, body } = parse(path.join(ROOT, 'skills', 'retro', 'SKILL.md'));
@@ -171,4 +187,75 @@ test('playbook covers the agreed rules', () => {
   ]) {
     assert.ok(text.includes(must), must);
   }
+});
+
+// ── S11 sample-run decisions ─────────────────────────────────────────────
+const read = (...p) => fs.readFileSync(path.join(ROOT, ...p), 'utf8');
+
+test('S11 (a): every helper with a shell, and the master, stop at a refused command instead of trying variants', () => {
+  for (const f of fs.readdirSync(path.join(ROOT, 'agents'))) {
+    const text = read('agents', f);
+    if (/^tools:.*\bBash\b/m.test(text)) assert.match(text, /\*\*A refused command → no variants\.\*\*/, f);
+  }
+  assert.match(read('guides', 'lifecycle.md'), /\*\*A refused command → no variants\.\*\*/);
+});
+
+test('S11 (a): setup offers allow rules, asks shared or personal, and warns about unprotected definition files', () => {
+  const { body } = parse(path.join(ROOT, 'skills', 'setup', 'SKILL.md'));
+  assert.match(body, /\*\*Allow rules\*\* \(guide section "Allow rules for the project's commands"\)/);
+  assert.match(body, /shared `\.claude\/settings\.json`, personal `\.claude\/settings\.local\.json`, or\s+none/);
+  assert.match(body, /\*\*warn\*\* \(an allowed command is only safe if builders can't change what it runs\)/);
+  assert.match(body, /never\s+`\.claude\/settings\.local\.json`/);
+  const guide = read('guides', 'project-config.md');
+  assert.match(guide, /## Allow rules for the project's commands \(optional\)/);
+  assert.match(guide, /in the form `Bash\(<command> \*\)`/);
+  assert.match(guide, /`prettier --write \{files\}` → `Bash\(prettier --write \*\)`/);
+  assert.match(guide, /git check-ignore -q \.claude\/settings\.local\.json/);
+  assert.match(guide, /\*\*An allowed command is only safe if builders can't change what it runs\.\*\*/);
+  assert.match(guide, /`package\.json` for `npm test`/);
+  assert.match(guide, /If that file isn't covered by `paths\.protected`, \*\*warn\*\*/);
+  assert.doesNotMatch(guide, /Bash\([^)]*:\*\)/);
+});
+
+test('S11 (c): setup and feature look with file tools; the feature skill names every template it needs', () => {
+  for (const skill of ['setup', 'feature']) {
+    assert.match(parse(path.join(ROOT, 'skills', skill, 'SKILL.md')).body, /Glob, Grep and\s+Read, not shell `ls` \/ `find` \/\s*`cat`/, skill);
+  }
+  const { body } = parse(path.join(ROOT, 'skills', 'feature', 'SKILL.md'));
+  for (const name of ['ledger.md', 'spec.md', 'rubric.md', 'plan.md', 'tasks.md', 'spec-quick.md']) {
+    assert.ok(body.includes(`\`../../templates/${name}\``), name);
+  }
+});
+
+test('S11 (d): merging into main may ask once — said in setup, ship, retro and the README', () => {
+  const said = /merge may ask for permission once|merging into the main branch may ask for permission once|Merging into the main branch\*\*\s+may ask once/;
+  assert.match(parse(path.join(ROOT, 'skills', 'setup', 'SKILL.md')).body, said);
+  assert.match(parse(path.join(ROOT, 'skills', 'retro', 'SKILL.md')).body, said);
+  assert.match(read('guides', 'lifecycle.md'), said);
+  assert.match(read('README.md'), said);
+});
+
+test('S11 (e): after revoke with nothing to change, the approvals are asked for again right away', () => {
+  assert.match(read('guides', 'lifecycle.md'), /\*\*After `revoke`\*\* \(at any stage\), ask what should change\. Nothing/);
+  assert.match(read('guides', 'lifecycle.md'), /set `awaiting: spec` \(quick lane: `both`\) and ask for `approve spec` \(`approve both`\) right away/);
+  assert.match(parse(path.join(ROOT, 'skills', 'feature', 'SKILL.md')).body, /ask for the approvals again right away/);
+});
+
+test('S11 cost #1: one ledger update per event, one clock read per event (chained to git or alone)', () => {
+  const text = read('guides', 'lifecycle.md');
+  assert.match(text, /\*\*One ledger update per event\*\*/);
+  assert.match(text, /in \*\*one\*\* Write of the whole file, or one Edit when\s+only one place changes/);
+  assert.match(text, /after the user types an approval phrase or\s+`revoke`, the hook has changed it, so Read it again first/);
+  assert.match(text, /`git commit … && date -u \+%Y-%m-%dT%H:%M:%SZ`/);
+  assert.match(text, /otherwise run `date -u \+%Y-%m-%dT%H:%M:%SZ` on its own/);
+});
+
+test('S11 (f): the retro runs no tests and commits what it wrote, or says clearly what is uncommitted', () => {
+  const { body } = parse(path.join(ROOT, 'skills', 'retro', 'SKILL.md'));
+  assert.match(body, /\*\*don't run the tests or the project's commands\*\*/);
+  assert.match(body, /## C\. Commit what was written/);
+  assert.match(body, /create `chore\/retro-<feature>` from the main branch/);
+  assert.match(body, /never directly on the main branch/);
+  assert.match(body, /say\s+clearly which files are \*\*uncommitted\*\*/);
+  assert.match(body, /committed \(branch\) or uncommitted \(which files\)/);
 });
