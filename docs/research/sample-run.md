@@ -48,7 +48,7 @@ every call ($0.93, 4.6 M cache-read tokens), output ($0.75), and cache writes ($
 call costs about $0.02–0.03 by the build stage, where the context is about 80 k tokens.
 
 ## The 3 biggest costs, with a trimming proposal each
-| # | Cost | Why | Proposal | Expected saving |
+| # | Cost | Why | Proposal (decided: see below) | Expected saving |
 |---|---|---|---|---|
 | 1 | **Master during tasks + build, $1.05** | 35 calls. Most are bookkeeping: 25 ledger edits and 11 clock reads (`date -u`). One event (task started, report in, task verified) usually took 2–3 small edits plus a clock read. | Playbook: **one ledger update per event**. Header fields and the log line change together. Read the clock once per event, in the same shell call as the git command that follows. | About half the bookkeeping calls, **≈ $0.30–0.40 (10–12 %)**. Medium confidence. |
 | 2 | **Setup, $0.55** | One-off per project. About $0.20 of it came from background mode (refused settings writes, merge retries). | No structural change. In a normal terminal those retries disappear. Finding (c) (look at the repo with Read/Glob, not shell) trims a little. | ≈ $0.15–0.20 in a normal run, mostly free |
@@ -68,19 +68,28 @@ weaker test author weakens every later check.
 | Setup writes its own settings file | Refused 3× in background mode, so the design session created the file. In a normal terminal this is one Claude Code prompt for `.claude/`. **Not a plugin bug.** |
 | Prompts in `acceptEdits` | Helper starts and plugin-guide reads: **no prompt**. The prompts that did appear are findings (a)–(d). |
 
-## Findings (each needs the user's decision)
-| # | Evidence | Proposal |
+## Findings and decisions (2026-11-24)
+| # | Evidence | Decision (built) |
 |---|---|---|
-| a | `npm test` needed approval for the master (2×) and for test author T01 (5×: it tried `npm test`, `npm --prefix … test` and `node --test` one after another). | Setup offers **allow rules for the project's own commands** (built from `commands`: test, lint, format, typecheck, e.g. `Bash(npm test:*)`) in `.claude/settings.json`. It asks first and shows the exact rules. Helpers get the rule: a refused command → no variants, report it. Probe at build time whether the rule also covers `npm test 2>&1 \| tail`. |
-| b | Verifiers: 21 shell commands, 7 refused: chains mixing `echo`/`node`, `node -e` for the score, CLI tries with `/tmp` files. `echo $(( … ))` ran without a prompt. | Verifier rules: compute the score in tenths with `echo $(( … ))`. Put behaviour tries into one check file under `specs/<feature>/reports/` and run it with the allowed test command. Nothing goes in `/tmp`. One command per call, with no chains. |
-| c | Setup looked at the repo with `ls -la`, `find` and `for … cat`. The feature skill ran `ls` on the plugin's `templates/`, which was refused 2× (outside the project). | The skills **name the exact template files**, so nothing needs listing. Look at the project with Glob/Read, not `ls`/`find`/`cat`. |
-| d | `git merge --ff-only chore/setup` needed approval 2× (the user's own safety rule for the main branch). | Document it: README "what to expect", and setup tells the user before merging that this asks once. It's expected, not an error. |
-| e | After `revoke` with nothing to change, the master spent 2 turns ($0.17), and the user had to say "ask me again". | After `revoke`, ask what should change. If nothing → set `awaiting: spec` and ask for `approve spec` straight away. |
+| a | `npm test` needed approval for the master (2×) and for test author T01 (5×: it tried `npm test`, `npm --prefix … test` and `node --test` one after another). | Setup offers **allow rules** `Bash(<command> *)` for the configured commands, and asks whether they go in shared `.claude/settings.json` or personal `.claude/settings.local.json`. It **warns** when the file that decides what a command runs (e.g. `package.json`) isn't in `paths.protected`. The gate hook lets only the master change these two files, through Claude Code's own prompt. Every helper and the master: a refused command → no variants, report it. |
+| b | Verifiers: 21 shell commands, 7 refused: chains mixing `echo`/`node`, `node -e` for the score, CLI tries with `/tmp` files. | The verifier **stays read-only**: no check files. It relies on the project's tests for behaviour (a manual try that asks is acceptable when really needed), sums the score in tenths with `echo $(( … ))`, runs one command per call, and writes nothing in `/tmp`. |
+| c | Setup looked at the repo with `ls -la`, `find` and `for … cat`. The feature skill ran `ls` on the plugin's `templates/`, which was refused 2×. | Setup and feature look with Glob / Grep / Read. The feature skill names all six templates. |
+| d | `git merge --ff-only chore/setup` needed approval 2× (the user's own safety rule for the main branch). | Setup, ship and retro tell the user before merging that this may ask once. The README has a "Permission prompts to expect" section. |
+| e | After `revoke` with nothing to change, the master spent 2 turns ($0.17), and the user had to say "ask me again". | After `revoke`: ask what should change. If nothing, ask for the approvals again right away. |
+| f | The retro tried `npm test` and left `CLAUDE.md` uncommitted. | The retro runs no tests. It commits what it wrote on `chore/retro-<feature>` and merges as `git.merge` says, or says clearly which files are uncommitted. |
+| cost #1 | See "The 3 biggest costs". | **One ledger update per event** (one Write, or one Edit when only one place changes). **One clock read per event.** |
+| tier | Test author on the strongest tier. | Stays. |
+
+**Clock probe** (2026-11-24, `claude -p`, `acceptEdits`, plugin active): `date -u …` alone, and
+`git commit … && date -u …` on a feature branch, both ran without a prompt. A commit on `main` asks
+first (the user's own rule), so the probe used a branch, as the master does. The same probe confirmed
+that with `Bash(npm test *)`, both `npm test` and `npm test 2>&1 | tail -5` run without a prompt,
+`node --test` is still refused, and `echo $(( … ))` runs. Allow-rule syntax: code.claude.com/docs/en/permissions
+(the space form `Bash(npm test *)`; `:*` is an equivalent older spelling).
 
 ## Smaller observations (no decision needed yet)
 - The master tried twice to edit the ledger's hook-written approval line ("string not found"). This was
   harmless, because hooks own those lines.
-- The retro wrote exactly the two lessons approved and nothing else. It tried `npm test` (not needed for a
-  retro), and it left the `CLAUDE.md` change uncommitted.
+- The retro wrote exactly the two lessons approved and nothing else (its other two findings are (f) above).
 - The `done-feature.sh` fixture has no reports or plan, so the retro's analysis was guesswork. That's
   fine for the eval, too thin for judging retro quality.
